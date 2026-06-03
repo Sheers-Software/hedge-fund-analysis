@@ -1,0 +1,694 @@
+/* ─── valuation.css ─────────────────────────────────────────────────────────────
+   ApexAlpha — Valuation Calculator Styles
+   Dark premium theme with gold accents for price/CAGR rows
+────────────────────────────────────────────────────────────────────────────── */
+
+/* ── Body & Page Layout ───────────────────────────────────────────────────── */
+.val-body {
+  background: var(--bg);
+}
+
+.val-main {
+  padding-top: calc(var(--nav) + 24px);
+  padding-bottom: 48px;
+  min-height: 100vh;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+/* ── Navbar center tabs ───────────────────────────────────────────────────── */
+.navbar-center {
+  flex: 0 0 auto;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.nav-tab {
+  padding: 5px 16px;
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--t2);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all .2s;
+  white-space: nowrap;
+}
+
+.nav-tab:hover {
+  color: var(--t1);
+  background: rgba(255,255,255,0.06);
+}
+
+.nav-tab.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(59,130,246,0.35);
+}
+
+/* Valuation search in navbar */
+.val-search-wrap {
+  width: 220px;
+}
+
+.val-search-input {
+  padding-right: 76px !important;
+}
+
+.val-nav-search {
+  width: 100%;
+}
+
+/* ── Empty / Welcome State ────────────────────────────────────────────────── */
+.val-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - var(--nav) - 80px);
+  gap: 20px;
+  text-align: center;
+}
+
+.val-empty-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #0f2444, #1a3a6b);
+  border: 1px solid var(--aborder);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 48px rgba(59,130,246,0.15);
+  animation: glowPulse 3s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 48px rgba(59,130,246,0.15); }
+  50%       { box-shadow: 0 0 64px rgba(59,130,246,0.28); }
+}
+
+.val-empty-title {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -.03em;
+  color: var(--t1);
+  margin: 0;
+}
+
+.val-empty-sub {
+  font-size: .92rem;
+  color: var(--t2);
+  line-height: 1.7;
+  max-width: 480px;
+}
+
+.val-empty-tickers {
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* ── Stock Header ─────────────────────────────────────────────────────────── */
+.val-stock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, rgba(15,25,35,0.9), rgba(20,30,43,0.9));
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  margin-bottom: 20px;
+  backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
+}
+
+.val-stock-header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.5;
+}
+
+.val-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.val-ticker-badge {
+  font-size: 2rem;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -.02em;
+  color: var(--t1);
+  min-width: 60px;
+}
+
+.val-company-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--t2);
+  margin-bottom: 6px;
+  letter-spacing: .02em;
+}
+
+.val-stock-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--t3);
+  letter-spacing: .04em;
+}
+
+.val-stock-stats b {
+  color: var(--t1);
+  font-weight: 700;
+}
+
+.val-stat-sep {
+  color: var(--t3);
+  opacity: 0.4;
+}
+
+.val-header-input {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--t1);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  width: 65px;
+  text-align: left;
+  padding: 2px 4px;
+  border-radius: 4px;
+  outline: none;
+  transition: all .2s;
+  -moz-appearance: textfield;
+}
+
+.val-header-input::-webkit-inner-spin-button,
+.val-header-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.val-header-input:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.12);
+}
+
+.val-header-input:focus {
+  background: rgba(59,130,246,0.08);
+  border-color: var(--accent);
+}
+
+.val-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.val-live-price {
+  font-size: 2rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -.02em;
+  color: var(--t1);
+  line-height: 1;
+}
+
+.val-price-change {
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.val-price-change.positive { color: var(--green); }
+.val-price-change.negative { color: var(--red); }
+
+.val-company-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--card2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent);
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+}
+
+.val-company-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* ── Scenario Blocks ──────────────────────────────────────────────────────── */
+.val-scenarios {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.val-scenario-block {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  transition: border-color .2s;
+}
+
+.val-scenario-block:hover {
+  border-color: rgba(255,255,255,0.12);
+}
+
+/* Scenario Headers */
+.val-scenario-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.val-scenario-header.bull {
+  background: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(16,185,129,0.04));
+  border-bottom-color: rgba(16,185,129,0.2);
+}
+
+.val-scenario-header.base {
+  background: linear-gradient(90deg, rgba(59,130,246,0.12), rgba(59,130,246,0.04));
+  border-bottom-color: rgba(59,130,246,0.2);
+}
+
+.val-scenario-header.bear {
+  background: linear-gradient(90deg, rgba(244,63,94,0.1), rgba(244,63,94,0.03));
+  border-bottom-color: rgba(244,63,94,0.18);
+}
+
+.val-scenario-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.val-scenario-header.bull  .val-scenario-label { color: var(--green); }
+.val-scenario-header.base  .val-scenario-label { color: var(--accent); }
+.val-scenario-header.bear  .val-scenario-label { color: var(--red); }
+
+.val-scenario-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.val-save-btn,
+.val-load-btn {
+  padding: 4px 12px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all .2s;
+  font-family: 'Inter', sans-serif;
+}
+
+.val-save-btn {
+  background: linear-gradient(135deg, #b45309, #d97706);
+  border: 1px solid rgba(217,119,6,0.4);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(180,83,9,0.3);
+}
+
+.val-save-btn:hover {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  box-shadow: 0 2px 12px rgba(245,158,11,0.4);
+  transform: translateY(-1px);
+}
+
+.val-load-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--t2);
+}
+
+.val-load-btn:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+/* ── Table Wrapper ────────────────────────────────────────────────────────── */
+.val-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* ── Valuation Table ──────────────────────────────────────────────────────── */
+.val-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 620px;
+  table-layout: fixed;
+}
+
+/* Column widths */
+.val-table colgroup { display: none; }
+.val-row-title  { width: 180px; min-width: 160px; }
+.val-th,
+.val-td-year,
+.val-td-auto,
+.val-td-input,
+.val-td-blank { width: calc((100% - 180px) / 5); text-align: center; }
+
+/* ── Row Styling ──────────────────────────────────────────────────────────── */
+.val-row {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background .12s;
+}
+
+.val-row:hover {
+  background: rgba(255,255,255,0.018);
+}
+
+.val-row-label {
+  background: rgba(255,255,255,0.025);
+}
+
+.val-row-input-row {
+  background: rgba(255,255,255,0.012);
+}
+
+.val-row-price {
+  background: rgba(245,158,11,0.04);
+}
+
+.val-row-cagr {
+  background: rgba(245,158,11,0.04);
+}
+
+.val-spacer-row {
+  height: 6px;
+  background: rgba(255,255,255,0.015);
+  border-top: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+/* ── Cell Styling ─────────────────────────────────────────────────────────── */
+.val-td {
+  padding: 8px 10px;
+  font-size: 0.77rem;
+  vertical-align: middle;
+}
+
+.val-row-title {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: .05em;
+  color: var(--t2);
+  text-transform: uppercase;
+  padding-left: 16px;
+  text-align: left;
+  white-space: nowrap;
+  border-right: 1px solid var(--border);
+}
+
+.val-row-title-sub {
+  font-size: 0.64rem;
+  color: var(--t3);
+  letter-spacing: .04em;
+}
+
+.val-td-year {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--t1);
+  text-align: center;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 10px;
+  background: rgba(255,255,255,0.025);
+}
+
+.val-td-auto {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.77rem;
+  font-weight: 500;
+  color: var(--t2);
+  text-align: center;
+}
+
+/* Gold cells — Share Price rows */
+.val-td-gold {
+  background: linear-gradient(135deg, rgba(180,83,9,0.18), rgba(245,158,11,0.12));
+  color: #fbbf24 !important;
+  font-weight: 700 !important;
+  font-size: 0.8rem !important;
+  border-left: 1px solid rgba(245,158,11,0.15);
+  border-right: 1px solid rgba(245,158,11,0.15);
+  text-shadow: 0 0 12px rgba(245,158,11,0.3);
+}
+
+/* CAGR cells */
+.val-td-cagr {
+  background: linear-gradient(135deg, rgba(180,83,9,0.22), rgba(245,158,11,0.16));
+  color: #f59e0b !important;
+  font-weight: 700 !important;
+  font-size: 0.8rem !important;
+  border: 1px solid rgba(245,158,11,0.2);
+}
+
+/* Blank cells (e.g. year 1 rev growth, year 1&2 CAGR) */
+.val-td-blank {
+  color: var(--t3);
+  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
+  opacity: 0.5;
+}
+
+/* Input cells */
+.val-td-input {
+  padding: 4px 6px;
+}
+
+/* Seed cell — Year 0 editable base (shared across all scenarios) */
+.val-td-seed {
+  padding: 4px 6px;
+  position: relative;
+  background: rgba(245,158,11,0.04);
+  border-left: 1px solid rgba(245,158,11,0.15);
+  border-right: 1px solid rgba(245,158,11,0.15);
+}
+
+.val-td-seed::after {
+  content: 'BASE YR';
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font-size: 0.42rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: rgba(245,158,11,0.5);
+  pointer-events: none;
+}
+
+.val-td-seed .val-input {
+  border-color: rgba(245,158,11,0.3);
+  background: rgba(245,158,11,0.07);
+  color: #fbbf24;
+}
+
+.val-td-seed .val-input:hover {
+  border-color: rgba(245,158,11,0.45);
+  background: rgba(245,158,11,0.1);
+}
+
+.val-td-seed .val-input:focus {
+  border-color: var(--amber);
+  background: rgba(245,158,11,0.14);
+  box-shadow: 0 0 0 2px rgba(245,158,11,0.18);
+}
+
+.val-input {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 5px;
+  color: var(--t1);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 5px 4px;
+  outline: none;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.val-input::-webkit-inner-spin-button,
+.val-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.val-input:hover {
+  border-color: rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.09);
+}
+
+.val-input:focus {
+  border-color: var(--accent);
+  background: rgba(59,130,246,0.08);
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+}
+
+/* Percentage input hint */
+.pct-input .val-input:focus {
+  border-color: var(--green);
+  background: rgba(16,185,129,0.07);
+  box-shadow: 0 0 0 2px rgba(16,185,129,0.13);
+}
+
+/* Question mark tooltip */
+.val-qmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1px solid var(--t3);
+  color: var(--t3);
+  font-size: 0.55rem;
+  font-weight: 700;
+  cursor: help;
+  transition: border-color .15s, color .15s;
+  vertical-align: middle;
+  margin-left: 3px;
+  font-family: 'Inter', sans-serif;
+}
+
+.val-qmark:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Disclaimer ───────────────────────────────────────────────────────────── */
+.val-disclaimer {
+  margin-top: 20px;
+  padding: 10px 16px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: var(--rs);
+  font-size: 0.67rem;
+  color: var(--t3);
+  text-align: center;
+  letter-spacing: .03em;
+  line-height: 1.6;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 899px) {
+  .val-main {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .val-stock-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .val-header-right {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .val-live-price {
+    font-size: 1.5rem;
+  }
+
+  .val-ticker-badge {
+    font-size: 1.5rem;
+  }
+
+  .val-stock-stats {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+  }
+
+  .val-stat-sep {
+    display: none;
+  }
+
+  .val-search-wrap {
+    width: 160px;
+  }
+
+  .navbar-center {
+    display: none;
+  }
+
+  .val-row-title {
+    width: 140px;
+    min-width: 120px;
+    font-size: 0.6rem;
+    padding-left: 10px;
+  }
+}
+
+@media (max-width: 599px) {
+  .val-empty-title {
+    font-size: 1.5rem;
+  }
+  .val-search-wrap {
+    width: 130px;
+  }
+  .val-input {
+    font-size: 0.72rem;
+    padding: 4px 2px;
+  }
+}
+
+/* ── Print ────────────────────────────────────────────────────────────────── */
+@media print {
+  .navbar,
+  .val-scenario-actions,
+  .val-disclaimer { display: none !important; }
+  .val-main { padding-top: 0; }
+  .val-scenario-block { break-inside: avoid; }
+  .val-input {
+    border: none;
+    background: transparent;
+  }
+}

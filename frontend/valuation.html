@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Valuation Calculator — ApexAlpha</title>
+  <meta name="description" content="Multi-year Bull, Base and Bear case stock valuation calculator. Project EPS, share price targets and CAGR returns.">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/valuation.css">
+</head>
+<body class="val-body">
+
+<!-- ── Navigation ── -->
+<nav class="navbar" id="navbar">
+  <div class="navbar-left">
+    <div class="navbar-brand">
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+        <rect width="26" height="26" rx="6" fill="#2563EB"/>
+        <path d="M6 19L10 11L13 16L16 8L20 19" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="brand-name">ApexAlpha</span>
+      <span class="brand-tag">RESEARCH</span>
+    </div>
+  </div>
+
+  <div class="navbar-center">
+    <nav class="nav-tabs" aria-label="App sections">
+      <a href="/" class="nav-tab" id="tab-research">Research</a>
+      <a href="/valuation" class="nav-tab active" id="tab-valuation" aria-current="page">Valuation</a>
+    </nav>
+  </div>
+
+  <div class="navbar-right">
+    <div class="val-search-wrap">
+      <div class="val-nav-search search-container">
+        <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="val-search-input" class="search-input val-search-input" placeholder="Search ticker…" autocomplete="off" spellcheck="false">
+        <button id="val-search-btn" class="search-btn">Analyze</button>
+        <div id="val-search-dropdown" class="search-dropdown"></div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="val-main" id="val-main">
+
+  <!-- Empty / Welcome State -->
+  <div class="val-empty" id="val-empty">
+    <div class="val-empty-icon">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+        <path d="M7 31L14 16L20 24L27 8L34 31" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="20" cy="12" r="3" fill="rgba(59,130,246,0.2)" stroke="#3b82f6" stroke-width="1.5"/>
+      </svg>
+    </div>
+    <h1 class="val-empty-title">Stock Valuation Calculator</h1>
+    <p class="val-empty-sub">Search for any stock to build multi-year Bull, Base and Bear case price target models. All projections update in real-time.</p>
+    <div class="val-empty-tickers">
+      <p class="welcome-label">Quick access</p>
+      <div class="sample-tickers">
+        <div class="sample-ticker" data-ticker="AAPL">AAPL</div>
+        <div class="sample-ticker" data-ticker="NVDA">NVDA</div>
+        <div class="sample-ticker" data-ticker="MSFT">MSFT</div>
+        <div class="sample-ticker" data-ticker="META">META</div>
+        <div class="sample-ticker" data-ticker="GOOGL">GOOGL</div>
+        <div class="sample-ticker" data-ticker="TSLA">TSLA</div>
+        <div class="sample-ticker" data-ticker="NOW">NOW</div>
+        <div class="sample-ticker" data-ticker="CRM">CRM</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calculator State (hidden until stock loaded) -->
+  <div class="val-calculator" id="val-calculator" style="display:none">
+
+    <!-- Stock Header -->
+    <div class="val-stock-header" id="val-stock-header">
+      <div class="val-header-left">
+        <div class="val-ticker-badge" id="val-ticker-badge">—</div>
+        <div class="val-header-meta">
+          <div class="val-company-name" id="val-company-name">—</div>
+          <div class="val-stock-stats" id="val-stock-stats">
+            <span class="stat-group">STOCK PRICE: $<input type="number" step="0.01" id="sh-price-input" class="val-header-input" title="Edit Current Price for CAGR calculation" value="0.00"></span>
+            <span class="val-stat-sep">|</span>
+            <span>MKT.CAP: <b id="sh-mktcap">—</b></span>
+            <span class="val-stat-sep">|</span>
+            <span class="stat-group">SHARES: <input type="number" step="1" id="sh-shares-input" class="val-header-input" title="Edit Shares Outstanding for EPS calculation" value="0"></span>
+          </div>
+        </div>
+      </div>
+      <div class="val-header-right">
+        <div class="val-live-price" id="val-live-price">—</div>
+        <div class="val-price-change" id="val-price-change"></div>
+        <div class="val-company-logo" id="val-company-logo"></div>
+      </div>
+    </div>
+
+    <!-- Scenario Tables -->
+    <div class="val-scenarios" id="val-scenarios">
+
+      <!-- BULL CASE -->
+      <div class="val-scenario-block" id="block-bull">
+        <div class="val-scenario-header bull">
+          <span class="val-scenario-label">BULL CASE</span>
+          <div class="val-scenario-actions">
+            <button class="val-load-btn" id="load-bull" title="Load saved Bull Case">LOAD</button>
+            <button class="val-save-btn" id="save-bull" title="Save Bull Case">SAVE</button>
+          </div>
+        </div>
+        <div class="val-table-wrap">
+          <table class="val-table" id="table-bull" data-scenario="bull"></table>
+        </div>
+      </div>
+
+      <!-- BASE CASE -->
+      <div class="val-scenario-block" id="block-base">
+        <div class="val-scenario-header base">
+          <span class="val-scenario-label">BASE CASE</span>
+          <div class="val-scenario-actions">
+            <button class="val-load-btn" id="load-base" title="Load saved Base Case">LOAD</button>
+            <button class="val-save-btn" id="save-base" title="Save Base Case">SAVE</button>
+          </div>
+        </div>
+        <div class="val-table-wrap">
+          <table class="val-table" id="table-base" data-scenario="base"></table>
+        </div>
+      </div>
+
+      <!-- BEAR CASE -->
+      <div class="val-scenario-block" id="block-bear">
+        <div class="val-scenario-header bear">
+          <span class="val-scenario-label">BEAR CASE</span>
+          <div class="val-scenario-actions">
+            <button class="val-load-btn" id="load-bear" title="Load saved Bear Case">LOAD</button>
+            <button class="val-save-btn" id="save-bear" title="Save Bear Case">SAVE</button>
+          </div>
+        </div>
+        <div class="val-table-wrap">
+          <table class="val-table" id="table-bear" data-scenario="bear"></table>
+        </div>
+      </div>
+
+    </div><!-- /val-scenarios -->
+
+    <!-- Disclaimer -->
+    <div class="val-disclaimer">
+      ⚠ This tool is for educational purposes only. Projections are hypothetical and do not constitute financial advice.
+    </div>
+
+  </div><!-- /val-calculator -->
+
+</main>
+
+<!-- Toast -->
+<div id="toast-container" class="toast-container"></div>
+
+<script src="/static/valuation.js"></script>
+</body>
+</html>

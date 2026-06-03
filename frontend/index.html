@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ApexAlpha — Institutional Research</title>
+  <meta name="description" content="AI-powered institutional-grade investment research. Real-time equity analysis for fund managers.">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/valuation.css">
+</head>
+<body>
+
+<!-- ── Navigation ── -->
+<nav class="navbar" id="navbar">
+  <div class="navbar-left">
+    <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="navbar-brand">
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+        <rect width="26" height="26" rx="6" fill="#2563EB"/>
+        <path d="M6 19L10 11L13 16L16 8L20 19" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="brand-name">ApexAlpha</span>
+      <span class="brand-tag">RESEARCH</span>
+    </div>
+  </div>
+
+  <div class="navbar-center">
+    <nav class="nav-tabs" aria-label="App sections">
+      <a href="/" class="nav-tab active" id="tab-research" aria-current="page">Research</a>
+      <a href="/valuation" class="nav-tab" id="tab-valuation">Valuation</a>
+    </nav>
+  </div>
+
+  <div class="navbar-search">
+    <div class="search-container">
+      <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="search-input" class="search-input" placeholder="Search ticker or company…" autocomplete="off" spellcheck="false">
+      <button id="search-btn" class="search-btn">Analyze</button>
+      <div id="search-dropdown" class="search-dropdown"></div>
+    </div>
+  </div>
+
+  <div class="navbar-right">
+    <button id="mode-badge" class="mode-badge" onclick="scrollToModeSelector()" title="Switch analysis mode">HF MODE</button>
+    <button id="settings-btn" class="settings-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span class="btn-label">API Keys</span>
+      <span id="gemini-status-dot" class="key-status-dot inactive"></span>
+    </button>
+  </div>
+</nav>
+
+<!-- ── App Shell ── -->
+<div class="app-shell" id="app-shell">
+
+  <!-- Sidebar overlay for mobile -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- Left Sidebar: Research Guide -->
+  <aside class="sidebar" id="left-panel">
+    <div class="sidebar-header">
+      <span class="sidebar-title" id="sidebar-title">Research Guide</span>
+      <button class="sidebar-close" id="sidebar-close">✕</button>
+    </div>
+    <div class="sidebar-body" id="sidebar-body">
+      <div class="sidebar-empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+        <p>Search for a company to generate a tailored research framework and KPI tracker.</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content" id="right-panel">
+
+    <!-- Welcome State -->
+    <div class="welcome-state" id="welcome-state">
+      <div class="welcome-hero">
+        <div class="welcome-icon">
+          <svg width="32" height="32" viewBox="0 0 36 36" fill="none">
+            <path d="M5 27L11 13L17 21L23 7L31 27" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h1 class="welcome-title">Institutional Research, <span class="title-accent">Automated</span></h1>
+        <p class="welcome-subtitle">Enter any stock ticker or company name to generate an institutional-grade investment analysis — powered by live market data and AI.</p>
+      </div>
+
+      <div class="welcome-tickers">
+        <p class="welcome-label">Quick access</p>
+        <div class="sample-tickers">
+          <div class="sample-ticker" data-ticker="NOW">NOW</div>
+          <div class="sample-ticker" data-ticker="NVDA">NVDA</div>
+          <div class="sample-ticker" data-ticker="MSFT">MSFT</div>
+          <div class="sample-ticker" data-ticker="AAPL">AAPL</div>
+          <div class="sample-ticker" data-ticker="META">META</div>
+          <div class="sample-ticker" data-ticker="GOOGL">GOOGL</div>
+          <div class="sample-ticker" data-ticker="TSLA">TSLA</div>
+          <div class="sample-ticker" data-ticker="CRM">CRM</div>
+        </div>
+      </div>
+
+      <!-- Populated by JS from localStorage cache -->
+      <div id="recent-tickers-strip" class="welcome-tickers" style="display:none"></div>
+
+      <!-- Mode Selector -->
+      <div style="text-align:center;margin-bottom:4px">
+        <p class="welcome-label">Choose your analysis methodology</p>
+      </div>
+      <div class="mode-selector" id="mode-selector">
+        <!-- Hedge Fund Mode -->
+        <div class="mode-card mode-hf active" id="mode-hf" onclick="setWorkflow('hedge_fund')">
+          <div class="mode-card-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round">
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+              <polyline points="16 7 22 7 22 13"/>
+            </svg>
+          </div>
+          <div class="mode-card-title">Hedge Fund Analysis</div>
+          <div class="mode-card-desc">Institutional-grade 8-section investment memo</div>
+          <div class="mode-card-steps">
+            <div class="mode-card-step">Executive Summary</div>
+            <div class="mode-card-step">Core Thesis</div>
+            <div class="mode-card-step">Business Model</div>
+            <div class="mode-card-step">Industry Structure</div>
+            <div class="mode-card-step">Competitive Position</div>
+            <div class="mode-card-step">Management &amp; CapAlloc</div>
+            <div class="mode-card-step">Financial Quality</div>
+            <div class="mode-card-step">Investment Judgment</div>
+          </div>
+        </div>
+        <!-- Research Checklist Mode -->
+        <div class="mode-card mode-rc" id="mode-rc" onclick="setWorkflow('research_checklist')">
+          <div class="mode-card-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round">
+              <path d="M9 11l3 3L22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+          </div>
+          <div class="mode-card-title">Research Checklist</div>
+          <div class="mode-card-desc">Jeremy's 8-step long-term due diligence process</div>
+          <div class="mode-card-steps">
+            <div class="mode-card-step">Base Profile</div>
+            <div class="mode-card-step">Investor Relations (10-K)</div>
+            <div class="mode-card-step">Conference Call</div>
+            <div class="mode-card-step">Quarterly Report</div>
+            <div class="mode-card-step">Investor Presentations</div>
+            <div class="mode-card-step">News &amp; Sentiment</div>
+            <div class="mode-card-step">Valuation</div>
+            <div class="mode-card-step">Share Statistics</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── Settings Modal ── -->
+<div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-title">API Configuration</h2>
+      <button class="modal-close-btn" id="modal-cancel-x">✕</button>
+    </div>
+    <p class="modal-subtitle">Keys are stored in memory and sent only to your local backend server.</p>
+
+    <div class="form-group">
+      <label class="form-label" for="gemini-key-input">
+        <span><span id="gemini-status-dot-modal" class="key-status-dot inactive"></span>Gemini API Key <span class="req">*</span></span>
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Get free key →</a>
+      </label>
+      <input type="password" id="gemini-key-input" class="form-input" placeholder="AIza..." autocomplete="off">
+      <div class="form-hint">Required · Powers AI analysis (Gemini 2.5 Flash)</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="finnhub-key-input">
+        <span><span id="finnhub-status-dot" class="key-status-dot inactive"></span>Finnhub API Key</span>
+        <a href="https://finnhub.io/register" target="_blank" rel="noopener">Get free key →</a>
+      </label>
+      <input type="password" id="finnhub-key-input" class="form-input" placeholder="d1a2b3..." autocomplete="off">
+      <div class="form-hint">Optional · Real-time quotes, search &amp; news</div>
+    </div>
+
+    <div class="modal-note">💡 Without Finnhub, the app falls back to <strong>yfinance</strong> for financial data.</div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" id="modal-cancel">Cancel</button>
+      <button class="btn-save" id="modal-save">Save Keys</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div id="toast-container" class="toast-container"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
