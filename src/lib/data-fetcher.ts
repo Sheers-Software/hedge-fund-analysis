@@ -1,15 +1,8 @@
-import yahooFinance from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
 import { CompanyData } from "./types";
 
-yahooFinance.suppressNotices(["yahooSurvey"]);
-
-const customFetch = async (url: RequestInfo | URL, init?: RequestInit) => {
-  return fetch(url, {
-    ...init,
-    cache: "no-store",
-  });
-};
-yahooFinance._env.fetch = customFetch as any;
+const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey", "ripHistorical"] } as any);
+yahooFinance._setOpts({ fetchOptions: { cache: "no-store" } } as any);
 
 const formatLargeNumber = (n: any) => {
   if (n === null || n === undefined || isNaN(Number(n))) return "N/A";
@@ -25,16 +18,91 @@ const fmtPct = (v: any) => {
   return `${(Number(v) * 100).toFixed(1)}%`;
 };
 
+// Yahoo Finance reliably blocks Vercel's data-center IPs, where requests may
+// hang rather than fail fast. Cap every external call so a stuck request can't
+// exhaust the serverless function's execution budget and the Finnhub fallback
+// always gets a chance to run.
+const FETCH_TIMEOUT_MS = 8000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 async function fetchFinnhub(endpoint: string, apiKey: string) {
   if (!apiKey) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(`https://finnhub.io/api/v1${endpoint}&token=${apiKey}`);
+    const res = await fetch(`https://finnhub.io/api/v1${endpoint}&token=${apiKey}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
     if (!res.ok) return null;
     return await res.json();
   } catch (e) {
     console.error(`Finnhub error on ${endpoint}:`, e);
     return null;
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+// Build a financials object from Finnhub data that mirrors the Yahoo Finance
+// shape as closely as the API allows. Used as the primary source on Vercel
+// (where Yahoo is blocked) and to backfill gaps when Yahoo partially succeeds.
+function financialsFromFinnhub(profile: any, quote: any, metrics: any) {
+  const m = metrics?.metric || {};
+  const shares = profile?.shareOutstanding ? profile.shareOutstanding * 1e6 : null;
+  const pct = (v: any) => (v === null || v === undefined || isNaN(Number(v)) ? null : Number(v) / 100);
+
+  const revenue_ttm = m.revenuePerShareTTM && shares ? m.revenuePerShareTTM * shares : null;
+  const profit_margin = pct(m.netProfitMarginTTM);
+  const eps = m.epsTTM ?? m.epsInclExtraItemsTTM ?? null;
+  const net_income =
+    revenue_ttm != null && profit_margin != null
+      ? revenue_ttm * profit_margin
+      : eps != null && shares != null
+        ? eps * shares
+        : null;
+  const market_cap = profile?.marketCapitalization ? profile.marketCapitalization * 1e6 : null;
+
+  return {
+    revenue_ttm,
+    revenue_formatted: formatLargeNumber(revenue_ttm),
+    net_income,
+    net_income_formatted: formatLargeNumber(net_income),
+    market_cap,
+    market_cap_formatted: formatLargeNumber(market_cap),
+    pe_ratio: m.peTTM ?? m.peInclExtraTTM ?? m.peBasicExclExtraTTM ?? null,
+    forward_pe: m.peNormalizedAnnual ?? null,
+    ps_ratio: m.psTTM ?? null,
+    pb_ratio: m.pbAnnual ?? m.pbQuarterly ?? null,
+    profit_margin,
+    operating_margin: pct(m.operatingMarginTTM),
+    gross_margin: pct(m.grossMarginTTM),
+    roe: pct(m.roeTTM),
+    roa: pct(m.roaTTM),
+    revenue_growth: pct(m.revenueGrowthTTMYoy),
+    earnings_growth: pct(m.epsGrowthTTMYoy),
+    current_price: quote?.c ?? null,
+    "52w_high": m["52WeekHigh"] ?? quote?.h ?? null,
+    "52w_low": m["52WeekLow"] ?? quote?.l ?? null,
+    beta: m.beta ?? null,
+    dividend_yield: pct(m.dividendYieldIndicatedAnnual),
+    free_cashflow: formatLargeNumber(
+      m.freeCashFlowPerShareTTM && shares ? m.freeCashFlowPerShareTTM * shares : null
+    ),
+    debt_to_equity: m["totalDebt/totalEquityQuarterly"] ?? m["totalDebt/totalEquityAnnual"] ?? null,
+    current_ratio: m.currentRatioQuarterly ?? m.currentRatioAnnual ?? null,
+    shares_outstanding: formatLargeNumber(shares),
+    trailing_eps: eps,
+    forward_eps: m.epsNormalizedAnnual ?? null,
+  } as Record<string, any>;
 }
 
 export async function fetchCompanyData(ticker: string, finnhubApiKey: string = ""): Promise<CompanyData> {
@@ -57,12 +125,16 @@ export async function fetchCompanyData(ticker: string, finnhubApiKey: string = "
     let quoteSummary: any = null;
     let quote: any = null;
     try {
-      quoteSummary = await (yahooFinance as any).quoteSummary(t, {
-        modules: ["price", "summaryDetail", "defaultKeyStatistics", "financialData", "summaryProfile"],
-      });
+      quoteSummary = await withTimeout(
+        (yahooFinance as any).quoteSummary(t, {
+          modules: ["price", "summaryDetail", "defaultKeyStatistics", "financialData", "summaryProfile"],
+        }),
+        FETCH_TIMEOUT_MS,
+        "yahoo.quoteSummary"
+      );
     } catch (e) {}
     try {
-      quote = await yahooFinance.quote(t);
+      quote = await withTimeout(yahooFinance.quote(t), FETCH_TIMEOUT_MS, "yahoo.quote");
     } catch (e) {}
 
     if (quoteSummary || quote) {
@@ -86,8 +158,8 @@ export async function fetchCompanyData(ticker: string, finnhubApiKey: string = "
       data.financials = {
         revenue_ttm: fd.totalRevenue,
         revenue_formatted: formatLargeNumber(fd.totalRevenue),
-        net_income: fd.netIncomeToCommon,
-        net_income_formatted: formatLargeNumber(fd.netIncomeToCommon),
+        net_income: fd.netIncomeToCommon ?? (fd.totalRevenue && fd.profitMargins ? fd.totalRevenue * fd.profitMargins : null),
+        net_income_formatted: formatLargeNumber(fd.netIncomeToCommon ?? (fd.totalRevenue && fd.profitMargins ? fd.totalRevenue * fd.profitMargins : null)),
         market_cap: p.marketCap,
         market_cap_formatted: formatLargeNumber(p.marketCap),
         enterprise_value: ks.enterpriseValue,
@@ -128,10 +200,15 @@ export async function fetchCompanyData(ticker: string, finnhubApiKey: string = "
       };
 
       try {
-        const histResult = await yahooFinance.historical(t, {
-          period1: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000), // 6 months ago
-          interval: "1d",
-        });
+        const histResult = await withTimeout(
+          yahooFinance.historical(t, {
+            period1: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000),
+            period2: new Date(),
+            interval: "1d",
+          }),
+          FETCH_TIMEOUT_MS,
+          "yahoo.historical"
+        );
         const hist: any[] = histResult as any[];
         if (hist && hist.length > 0) {
           data.price_history = hist.map((h: any) => ({
@@ -175,40 +252,32 @@ export async function fetchCompanyData(ticker: string, finnhubApiKey: string = "
         };
       }
 
-      if (!yfinanceOk && profile && quote) {
+      if (!yfinanceOk && (profile || quote)) {
+        // Yahoo unavailable (e.g. blocked on Vercel) — rebuild the full
+        // financials picture from Finnhub so parity with localhost holds.
         data.error = null;
         data.info = {
-          longName: profile.name || t,
-          sector: profile.finnhubIndustry || "N/A",
-          industry: profile.finnhubIndustry || "N/A",
-          website: profile.weburl || "",
-          longBusinessSummary: `${profile.name || t} is a company operating in the ${profile.finnhubIndustry || "N/A"} sector.`,
-          exchange: profile.exchange || "N/A",
-          country: profile.country || "N/A",
+          longName: profile?.name || t,
+          sector: profile?.finnhubIndustry || "N/A",
+          industry: profile?.finnhubIndustry || "N/A",
+          website: profile?.weburl || "",
+          longBusinessSummary: `${profile?.name || t} is a company operating in the ${profile?.finnhubIndustry || "N/A"} sector.`,
+          exchange: profile?.exchange || "N/A",
+          country: profile?.country || "N/A",
         };
-        const m = metrics?.metric || {};
-        data.financials = {
-          market_cap: profile.marketCapitalization ? profile.marketCapitalization * 1e6 : null,
-          market_cap_formatted: profile.marketCapitalization ? formatLargeNumber(profile.marketCapitalization * 1e6) : "N/A",
-          current_price: quote.c,
-          "52w_high": m["52WeekHigh"] || quote.h,
-          "52w_low": m["52WeekLow"] || quote.l,
-          shares_outstanding: profile.shareOutstanding ? formatLargeNumber(profile.shareOutstanding * 1e6) : "N/A",
-          pe_ratio: m.peInclExtraTTM || m.peBasicExclExtraTTM,
-          forward_pe: m.peNormalizedAnnual,
-          gross_margin: m.grossMarginTTM ? m.grossMarginTTM / 100 : null,
-          operating_margin: m.operatingMarginTTM ? m.operatingMarginTTM / 100 : null,
-          profit_margin: m.netProfitMarginTTM ? m.netProfitMarginTTM / 100 : null,
-        };
-      } else if (yfinanceOk && metrics?.metric) {
-        // Enrich
-        const m = metrics.metric;
+        data.financials = financialsFromFinnhub(profile, quote, metrics);
+      } else if (yfinanceOk && (metrics?.metric || profile)) {
+        // Yahoo succeeded but may have gaps — backfill only missing fields.
         const fin = data.financials;
-        if (!fin.pe_ratio) fin.pe_ratio = m.peInclExtraTTM;
-        if (!fin.forward_pe) fin.forward_pe = m.peNormalizedAnnual;
-        if (!fin.gross_margin && m.grossMarginTTM) fin.gross_margin = m.grossMarginTTM / 100;
-        if (!fin.operating_margin && m.operatingMarginTTM) fin.operating_margin = m.operatingMarginTTM / 100;
-        if (!fin.profit_margin && m.netProfitMarginTTM) fin.profit_margin = m.netProfitMarginTTM / 100;
+        const fallback = financialsFromFinnhub(profile, quote, metrics);
+        for (const [key, val] of Object.entries(fallback)) {
+          const missing =
+            fin[key] === undefined ||
+            fin[key] === null ||
+            fin[key] === "N/A" ||
+            (typeof fin[key] === "number" && isNaN(fin[key]));
+          if (missing && val !== null && val !== "N/A") fin[key] = val;
+        }
       }
 
       if (news && Array.isArray(news)) {
