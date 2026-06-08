@@ -14,10 +14,12 @@ This repository contains the Next.js rewrite of the original Python/VanillaJS ve
 
 ## Features
 
-1.  **AI Research Hub**: Generate comprehensive Hedge Fund investment memos or Research Checklists using Gemini 2.5 Flash. The responses stream in real-time.
-2.  **Stateless API Design**: Bring your own API keys. Keys are stored locally in your browser via `localStorage` (zustand-persist) and never saved to a backend database, making this a zero-cost demo.
-3.  **Valuation Calculator**: Interactive 5-year multi-scenario (Bull, Base, Bear) valuation model with CAGR analysis and auto-populated fundamental metrics.
-4.  **Glassmorphism UI**: Beautiful, dark-mode-first institutional interface built with Tailwind and CSS variables.
+1.  **AI Research Hub**: Generate a comprehensive, institutional-style Hedge Fund investment memo with Gemini 2.5 Flash. Sections stream in live — executive summary, core thesis, business model, industry structure, competitive position, management & capital allocation, financial quality, and investment judgment.
+2.  **Professional Export**: Export any generated report as a polished, print-ready **PDF** (clean light layout with a branded cover page, light data tables, and a disclaimer footer) or as **Markdown**.
+3.  **Real-Time Fundamentals**: Live company financials, quotes, and news via a resilient multi-source pipeline (see [Data Sources & Reliability](#data-sources--reliability)).
+4.  **Valuation Calculator**: Interactive 5-year multi-scenario (Bull, Base, Bear) model with CAGR analysis and fundamentals auto-populated from real-time data.
+5.  **Bring-Your-Own-Key**: Keys are stored locally in your browser via `localStorage` (zustand-persist) or supplied server-side via environment variables — no backend database required.
+6.  **Dark-Mode Institutional UI**: A focused, dark-first interface built with Tailwind and CSS variables.
 
 ## Getting Started
 
@@ -83,6 +85,17 @@ npm start
 ```
 
 The AI generation route (\`src/app/api/report/[ticker]/route.ts\`) explicitly targets the \`edge\` runtime to avoid Vercel's standard serverless function timeout limits for streaming responses.
+
+### Environment variables on Vercel
+
+`.env.local` is **not** deployed. Add your keys under **Project → Settings → Environment Variables**, enable them for the **Production** *and* **Preview** environments (Preview matters for branch/PR deployments), then **redeploy** — existing deployments don't pick up new variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `GEMINI_API_KEY` | Required for AI report generation. |
+| `FINNHUB_API_KEY` | Real-time data fallback and ticker search. |
+
+If `GEMINI_API_KEY` is missing, the report route returns `401` and the app prompts for an in-app key in the Settings modal.
 
 ## Legacy Code
 
