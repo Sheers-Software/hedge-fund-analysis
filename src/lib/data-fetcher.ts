@@ -1,6 +1,16 @@
 import yahooFinance from "yahoo-finance2";
 import { CompanyData } from "./types";
 
+yahooFinance.suppressNotices(["yahooSurvey"]);
+
+const customFetch = async (url: RequestInfo | URL, init?: RequestInit) => {
+  return fetch(url, {
+    ...init,
+    cache: "no-store",
+  });
+};
+yahooFinance._env.fetch = customFetch as any;
+
 const formatLargeNumber = (n: any) => {
   if (n === null || n === undefined || isNaN(Number(n))) return "N/A";
   const num = Number(n);
