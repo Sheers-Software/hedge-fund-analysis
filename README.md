@@ -60,6 +60,16 @@ hedge-fund-analysis/
 
 ---
 
+## 🏗️ SaaS Transformation Documents
+
+We are currently planning the transformation of ApexAlpha AI from a local tool to a production SaaS platform. The comprehensive planning documents are available in the `docs/saas-planning` directory:
+
+* **[Product Requirements Document (PRD)](docs/saas-planning/prd.md)**: Product vision, user personas, pricing, and feature prioritization.
+* **[Architecture Document](docs/saas-planning/architecture.md)**: System design, infrastructure, and technology stack for the multi-tenant SaaS.
+* **[Build Plan](docs/saas-planning/build_plan.md)**: Detailed 16-week engineering roadmap and execution plan.
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Clone & Set Up Python Environment
