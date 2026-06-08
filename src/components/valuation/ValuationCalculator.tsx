@@ -234,8 +234,6 @@ export default function ValuationCalculator({ ticker }: { ticker: string }) {
         headers: { "x-finnhub-key": finnhubKey }
       });
       const d: CompanyData = await res.json();
-      if (d.error) throw new Error(d.error);
-      
       setData(d);
       
       const q = d.real_time_quote || {};
@@ -282,6 +280,11 @@ export default function ValuationCalculator({ ticker }: { ticker: string }) {
 
   return (
     <div className="val-calculator">
+      {data.error && (
+        <div className="bg-orange-900/40 border border-orange-500/50 text-orange-200 p-4 rounded-lg mb-6 text-sm">
+          <strong>Data Fetch Warning:</strong> Yahoo Finance data is blocked by Vercel. Add a free Finnhub API Key in Settings to automatically pull metrics, or manually input the stock price and shares below.
+        </div>
+      )}
       <div className="val-stock-header">
         <div className="val-header-left">
           <div className="val-ticker-badge">{ticker}</div>

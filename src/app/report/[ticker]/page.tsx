@@ -39,7 +39,6 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
         headers: { "x-finnhub-key": finnhubKey }
       });
       const data = await res.json();
-      if (data.error) throw new Error(data.error);
       setCompanyData(data);
     } catch (e: any) {
       setError(e.message);
@@ -224,6 +223,11 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
         )}
       </Sidebar>
       <main className="main-content">
+        {companyData.error && (
+          <div className="bg-orange-900/40 border border-orange-500/50 text-orange-200 p-4 rounded-lg mb-6 text-sm">
+            <strong>Data Fetch Warning:</strong> Yahoo Finance data is blocked by Vercel. Add a free Finnhub API Key in Settings to restore real-time financial data. The AI will still attempt to generate a report using its internal knowledge!
+          </div>
+        )}
         <CompanyHeader data={companyData} />
         <FinancialMetrics data={companyData} />
         <NewsFeed data={companyData} />
