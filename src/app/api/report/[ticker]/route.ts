@@ -17,9 +17,15 @@ export async function POST(
   { params }: { params: Promise<{ ticker: string }> }
 ) {
   try {
-    const geminiKey = request.headers.get("Authorization")?.replace("Bearer ", "");
+    const authHeader = request.headers.get("Authorization");
+    let geminiKey = authHeader?.split("Bearer ")[1];
+
+    if (!geminiKey || geminiKey === "null" || geminiKey === "undefined" || geminiKey.trim() === "") {
+      geminiKey = process.env.GEMINI_API_KEY;
+    }
+
     if (!geminiKey) {
-      return new NextResponse("Unauthorized: Missing Gemini API Key", { status: 401 });
+      return NextResponse.json({ error: "Missing Gemini API Key" }, { status: 401 });
     }
 
     const { ticker } = await params;

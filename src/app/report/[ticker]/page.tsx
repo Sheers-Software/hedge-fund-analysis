@@ -48,10 +48,6 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
   };
 
   const generateReport = async () => {
-    if (!geminiKey) {
-      setSettingsOpen(true);
-      return;
-    }
     if (!companyData) return;
 
     setResearchGuide(null);
@@ -70,7 +66,7 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${geminiKey}`
+          ...(geminiKey ? { "Authorization": `Bearer ${geminiKey}` } : {})
         },
         body: JSON.stringify({ workflow, data: companyData })
       });

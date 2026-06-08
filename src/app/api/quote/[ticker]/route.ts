@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { ticker } = await params;
-    const finnhubKey = request.headers.get("x-finnhub-key") || "";
+    const finnhubKey = request.headers.get("x-finnhub-key") || process.env.FINNHUB_API_KEY || "";
     
     const data = await fetchCompanyData(ticker, finnhubKey);
     return NextResponse.json(data);
