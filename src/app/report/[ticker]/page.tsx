@@ -26,6 +26,7 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
   const [sections, setSections] = useState<ReportSectionData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [genError, setGenError] = useState<string | null>(null);
 
   useEffect(() => {
     setCurrentTicker(ticker);
@@ -51,6 +52,7 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
     if (!companyData) return;
 
     setResearchGuide(null);
+    setGenError(null);
     setIsGenerating(true);
     setProgress(5);
 
@@ -72,8 +74,18 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
       });
 
       if (!res.ok) {
-        if (res.status === 401) setSettingsOpen(true);
-        throw new Error("Failed to start generation");
+        const body = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          setGenError(
+            (body.error || "Missing Gemini API Key") +
+              ". Add your Gemini key in Settings, or set GEMINI_API_KEY in the server environment (Vercel → Project → Settings → Environment Variables)."
+          );
+          setSettingsOpen(true);
+        } else {
+          setGenError(body.error || `Generation failed (HTTP ${res.status}).`);
+        }
+        setIsGenerating(false);
+        return;
       }
 
       const reader = res.body?.getReader();
@@ -126,6 +138,7 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
                 setIsGenerating(false);
               } else if (eventType === "error") {
                 console.error("SSE Error:", data.message);
+                setGenError(data.message || "The AI engine returned an error.");
                 setIsGenerating(false);
               }
             } catch (e) {
@@ -136,6 +149,7 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
       }
     } catch (e: any) {
       console.error(e);
+      setGenError(e.message || "Network error while contacting the AI engine.");
       setIsGenerating(false);
     }
   };
@@ -264,6 +278,12 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
             </button>
           </div>
         </div>
+
+        {genError && (
+          <div className="bg-red-900/40 border border-red-500/50 text-red-200 p-4 rounded-lg my-4 text-sm">
+            <strong>Report generation failed:</strong> {genError}
+          </div>
+        )}
 
         {isGenerating && progress < 100 && (
           <div className="progress-bar-wrapper">
