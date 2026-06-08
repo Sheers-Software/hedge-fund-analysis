@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { ChevronDown } from "lucide-react";
 
 export interface ReportSectionData {
   id: string;
@@ -27,26 +28,24 @@ export default function SectionCard({
 
   return (
     <div className={`report-section ${isRC ? 'wf-rc' : 'wf-hf'}`}>
-      <div className="section-header" onClick={() => setExpanded(!expanded)}>
+      <div
+        className="section-header"
+        onClick={() => setExpanded(!expanded)}
+        role="button"
+        aria-expanded={expanded}
+      >
         <div className="section-number">{index + 1}</div>
         <div className="section-title-text">{section.title}</div>
         <div className={`section-status ${section.status}`} />
+        <ChevronDown size={15} className={`section-chevron ${expanded ? "open" : ""}`} />
       </div>
-      
+
       {expanded && (
         <div className="section-body">
-          <ReactMarkdown
-            components={{
-              p: ({node, ...props}) => <p className="mb-4 last:mb-0" {...props} />,
-              ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-4" {...props} />,
-              li: ({node, ...props}) => <li className="mb-2" {...props} />,
-              h3: ({node, ...props}) => <h3 className="text-sm font-bold text-[#e8edf2] mt-4 mb-2 uppercase" {...props} />,
-              strong: ({node, ...props}) => <strong className="text-[#e8edf2] font-semibold" {...props} />
-            }}
-          >
-            {section.content}
-          </ReactMarkdown>
-          {section.status === "loading" && <span className="typing-cursor" />}
+          <div className="section-prose">
+            <ReactMarkdown>{section.content}</ReactMarkdown>
+            {section.status === "loading" && <span className="typing-cursor" />}
+          </div>
         </div>
       )}
     </div>
