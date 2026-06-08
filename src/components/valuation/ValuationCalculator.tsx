@@ -55,13 +55,12 @@ function parseSharesStr(str: string | null) {
   return parseFloat(m[1]) * mult;
 }
 
-function ScenarioTable({ 
-  sc, 
-  data, 
-  onChange, 
-  seedRevenue, 
-  seedNetIncome, 
-  onSeedChange,
+function ScenarioTable({
+  sc,
+  data,
+  onChange,
+  seedRevenue,
+  seedNetIncome,
   currentPrice,
   sharesOut
 }: any) {
@@ -128,9 +127,7 @@ function ScenarioTable({
             </tr>
             <tr className="val-row">
               <td className="val-td val-row-title">REVENUE</td>
-              <td className="val-td val-td-input val-td-seed">
-                <input className="val-input val-input-seed" type="number" value={Math.round(seedRevenue)} onChange={e => onSeedChange("rev", e.target.value)} />
-              </td>
+              <td className="val-td val-td-auto val-td-live">{fmtShort(seedRevenue)}</td>
               {rev.slice(1).map((v, i) => <td key={i} className="val-td val-td-auto">{fmtShort(v)}</td>)}
             </tr>
             <tr className="val-row val-row-input-row">
@@ -145,9 +142,7 @@ function ScenarioTable({
             <tr className="val-spacer-row"><td colSpan={6}></td></tr>
             <tr className="val-row">
               <td className="val-td val-row-title">NET INCOME</td>
-              <td className="val-td val-td-input val-td-seed">
-                <input className="val-input val-input-seed" type="number" value={Math.round(seedNetIncome)} onChange={e => onSeedChange("ni", e.target.value)} />
-              </td>
+              <td className="val-td val-td-auto val-td-live">{fmtShort(seedNetIncome)}</td>
               {ni.slice(1).map((v, i) => <td key={i} className="val-td val-td-auto">{fmtShort(v)}</td>)}
             </tr>
             <tr className="val-row val-row-input-row">
@@ -264,12 +259,6 @@ export default function ValuationCalculator({ ticker }: { ticker: string }) {
     setScenarios(prev => ({ ...prev, [sc]: newScenData }));
   };
 
-  const handleSeedChange = (type: 'rev' | 'ni', val: string) => {
-    const num = val === '' ? 0 : parseFloat(val);
-    if (type === 'rev') setSeedRevenue(num);
-    else setSeedNetIncome(num);
-  };
-
   if (loading) return <div className="p-8 text-center text-[var(--t2)]">Loading data for {ticker}...</div>;
   if (error || !data) return <div className="p-8 text-center text-[var(--red)]">Failed to load data: {error}</div>;
 
@@ -325,14 +314,13 @@ export default function ValuationCalculator({ ticker }: { ticker: string }) {
 
       <div className="val-scenarios">
         {(['bull', 'base', 'bear'] as const).map(sc => (
-          <ScenarioTable 
+          <ScenarioTable
             key={sc}
             sc={sc}
             data={scenarios[sc]}
             onChange={handleScenarioChange}
             seedRevenue={seedRevenue}
             seedNetIncome={seedNetIncome}
-            onSeedChange={handleSeedChange}
             currentPrice={currentPrice}
             sharesOut={sharesOut}
           />
