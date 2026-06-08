@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Search, Settings, Activity, Menu, X } from "lucide-react";
+import { Search, Settings, Activity, Menu } from "lucide-react";
 import { useAppStore, useSettingsStore } from "@/lib/store";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -72,9 +72,15 @@ export default function Navbar() {
   return (
     <nav className="navbar">
       <div className="navbar-left">
-        <button className="sidebar-toggle" onClick={toggleSidebar}>
-          <Menu size={16} color="var(--t2)" />
-        </button>
+        {pathname.startsWith("/report") && (
+          <button
+            className="sidebar-toggle"
+            onClick={toggleSidebar}
+            aria-label="Toggle research guide"
+          >
+            <Menu size={16} />
+          </button>
+        )}
         <Link href="/" className="navbar-brand">
           <div className="flex items-center gap-2">
             <Activity size={20} color="var(--accent)" />
