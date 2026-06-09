@@ -145,10 +145,15 @@ export async function fetchCompanyData(ticker: string, finnhubApiKey: string = "
       const p = quoteSummary?.price || quote || {};
       const sp = quoteSummary?.summaryProfile || {};
 
-      // Forward full-fiscal-year analyst consensus (current FY, period "0y").
-      // This is the basis used for the valuation model's Year-1 seed.
+      // Forward analyst consensus: current FY ("0y") and next FY ("+1y").
+      // Used for the valuation Year-1 seed and the Mandatory Metrics panel.
       const trend: any[] = quoteSummary?.earningsTrend?.trend || [];
       const fy = trend.find((x: any) => x.period === "0y") || {};
+      const nextFy = trend.find((x: any) => x.period === "+1y") || {};
+      const px = p.regularMarketPrice;
+      const epsCurFy = fy.earningsEstimate?.avg ?? null;
+      const epsNextFy = nextFy.earningsEstimate?.avg ?? null;
+      const revCurFy = fy.revenueEstimate?.avg ?? null;
 
       data.info = {
         longName: p.longName || p.shortName || t,
@@ -203,9 +208,19 @@ export async function fetchCompanyData(ticker: string, finnhubApiKey: string = "
         analyst_rec: fd.recommendationKey,
         num_analyst_opinions: fd.numberOfAnalystOpinions,
         // Forward full-FY consensus estimates (used to seed the valuation model)
-        revenue_fwd: fy.revenueEstimate?.avg ?? null,
-        eps_fwd: fy.earningsEstimate?.avg ?? null,
+        revenue_fwd: revCurFy,
+        eps_fwd: epsCurFy,
         fwd_fy_end: fy.endDate ?? null,
+        // Mandatory Metrics panel — forward PE ladder (price / forward EPS),
+        // forward growth rates, and forward P/S.
+        eps_fwd_2y: epsNextFy,
+        pe_fwd: px && epsCurFy ? px / epsCurFy : null,
+        pe_2y_fwd: px && epsNextFy ? px / epsNextFy : null,
+        forward_ps: p.marketCap && revCurFy ? p.marketCap / revCurFy : null,
+        eps_growth_cur_fy: fy.earningsEstimate?.growth ?? null,
+        eps_growth_next_fy: nextFy.earningsEstimate?.growth ?? null,
+        rev_growth_cur_fy: fy.revenueEstimate?.growth ?? null,
+        rev_growth_next_fy: nextFy.revenueEstimate?.growth ?? null,
       };
 
       try {

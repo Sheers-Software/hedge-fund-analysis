@@ -5,6 +5,7 @@ import { useAppStore, useSettingsStore } from "@/lib/store";
 import { WORKFLOW_SECTIONS } from "@/lib/prompts";
 import CompanyHeader from "@/components/ui/CompanyHeader";
 import FinancialMetrics from "@/components/ui/FinancialMetrics";
+import MandatoryMetrics from "@/components/ui/MandatoryMetrics";
 import NewsFeed from "@/components/ui/NewsFeed";
 import SectionCard, { ReportSectionData } from "@/components/ui/SectionCard";
 import Sidebar from "@/components/layout/Sidebar";
@@ -285,6 +286,7 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
         )}
         <CompanyHeader data={companyData} />
         <FinancialMetrics data={companyData} />
+        <MandatoryMetrics data={companyData} />
         <NewsFeed data={companyData} />
 
         <div className="report-header-bar">
