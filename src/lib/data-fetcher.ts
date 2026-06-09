@@ -278,6 +278,43 @@ export async function fetchCompanyData(ticker: string, finnhubApiKey: string = "
             (typeof fin[key] === "number" && isNaN(fin[key]));
           if (missing && val !== null && val !== "N/A") fin[key] = val;
         }
+
+        // Yahoo's financialData.totalRevenue is unreliable for some tickers — it
+        // can return a single stale quarter (e.g. ELF showed ~$268M vs a true
+        // ~$1.6B TTM), and its other ratios are internally consistent with that
+        // bad figure, so it can't be self-checked. Cross-check against Finnhub's
+        // TTM revenue (revenue/share x shares) and prefer Finnhub when they
+        // diverge materially, recomputing the dependent fields for consistency.
+        const m = metrics?.metric || {};
+        const shares = profile?.shareOutstanding ? profile.shareOutstanding * 1e6 : null;
+        const finnhubRevenue = m.revenuePerShareTTM && shares ? m.revenuePerShareTTM * shares : null;
+        if (finnhubRevenue && fin.revenue_ttm) {
+          const divergence =
+            Math.abs(finnhubRevenue - fin.revenue_ttm) / Math.max(finnhubRevenue, fin.revenue_ttm);
+          if (divergence > 0.2) {
+            console.warn(
+              `[${t}] Yahoo revenue (${fin.revenue_ttm}) diverges ${(divergence * 100).toFixed(0)}% from Finnhub (${finnhubRevenue}); using Finnhub.`
+            );
+            fin.revenue_ttm = finnhubRevenue;
+            fin.revenue_formatted = formatLargeNumber(finnhubRevenue);
+
+            const margin =
+              m.netProfitMarginTTM != null ? m.netProfitMarginTTM / 100 : fin.profit_margin;
+            const eps = m.epsTTM ?? m.epsInclExtraItemsTTM ?? null;
+            const netIncome =
+              margin != null
+                ? finnhubRevenue * margin
+                : eps != null && shares
+                  ? eps * shares
+                  : null;
+            if (netIncome != null) {
+              fin.net_income = netIncome;
+              fin.net_income_formatted = formatLargeNumber(netIncome);
+            }
+            if (margin != null) fin.profit_margin = margin;
+            if (fin.market_cap) fin.ps_ratio = fin.market_cap / finnhubRevenue;
+          }
+        }
       }
 
       if (news && Array.isArray(news)) {
