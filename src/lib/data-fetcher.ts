@@ -127,7 +127,7 @@ export async function fetchCompanyData(ticker: string, finnhubApiKey: string = "
     try {
       quoteSummary = await withTimeout(
         (yahooFinance as any).quoteSummary(t, {
-          modules: ["price", "summaryDetail", "defaultKeyStatistics", "financialData", "summaryProfile"],
+          modules: ["price", "summaryDetail", "defaultKeyStatistics", "financialData", "summaryProfile", "earningsTrend"],
         }),
         FETCH_TIMEOUT_MS,
         "yahoo.quoteSummary"
@@ -144,6 +144,11 @@ export async function fetchCompanyData(ticker: string, finnhubApiKey: string = "
       const ks = quoteSummary?.defaultKeyStatistics || {};
       const p = quoteSummary?.price || quote || {};
       const sp = quoteSummary?.summaryProfile || {};
+
+      // Forward full-fiscal-year analyst consensus (current FY, period "0y").
+      // This is the basis used for the valuation model's Year-1 seed.
+      const trend: any[] = quoteSummary?.earningsTrend?.trend || [];
+      const fy = trend.find((x: any) => x.period === "0y") || {};
 
       data.info = {
         longName: p.longName || p.shortName || t,
@@ -197,6 +202,10 @@ export async function fetchCompanyData(ticker: string, finnhubApiKey: string = "
         analyst_target: fd.targetMeanPrice,
         analyst_rec: fd.recommendationKey,
         num_analyst_opinions: fd.numberOfAnalystOpinions,
+        // Forward full-FY consensus estimates (used to seed the valuation model)
+        revenue_fwd: fy.revenueEstimate?.avg ?? null,
+        eps_fwd: fy.earningsEstimate?.avg ?? null,
+        fwd_fy_end: fy.endDate ?? null,
       };
 
       try {
