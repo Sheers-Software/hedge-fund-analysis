@@ -241,9 +241,13 @@ export default function ValuationCalculator({ ticker }: { ticker: string }) {
         sh = d.finnhub_profile.shareOutstanding * 1e6;
       }
       setSharesOut(sh || 0);
-      
-      setSeedRevenue(f.revenue_ttm || 0);
-      setSeedNetIncome(f.net_income || 0);
+
+      // Seed Year-1 from forward full-FY analyst consensus when available
+      // (matches how the model is built); fall back to trailing-twelve-month
+      // actuals when estimates aren't available (e.g. Yahoo blocked on Vercel).
+      setSeedRevenue(f.revenue_fwd || f.revenue_ttm || 0);
+      const fwdNetIncome = f.eps_fwd && sh ? f.eps_fwd * sh : null;
+      setSeedNetIncome(fwdNetIncome ?? f.net_income ?? 0);
 
       const savedBull = localStorage.getItem(`apexalpha_val_bull_${ticker}`);
       if (savedBull) setScenarios(s => ({ ...s, bull: JSON.parse(savedBull).data }));
