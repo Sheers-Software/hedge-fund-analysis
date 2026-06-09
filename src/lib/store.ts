@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { ReportSectionData } from "@/components/ui/SectionCard";
 
 interface SettingsState {
   geminiKey: string;
@@ -47,3 +48,34 @@ export const useAppStore = create<AppState>((set) => ({
   researchGuide: null,
   setResearchGuide: (guide) => set({ researchGuide: guide }),
 }));
+
+// Persists generated reports per ticker so navigating between features
+// (Research Hub / Valuation / Charts) doesn't discard a generated report.
+export interface ReportEntry {
+  sections: ReportSectionData[];
+  researchGuide: any;
+  generatedAt: number;
+}
+
+interface ReportState {
+  reports: Record<string, ReportEntry>;
+  saveReport: (ticker: string, entry: ReportEntry) => void;
+  clearReport: (ticker: string) => void;
+}
+
+export const useReportStore = create<ReportState>()(
+  persist(
+    (set) => ({
+      reports: {},
+      saveReport: (ticker, entry) =>
+        set((state) => ({ reports: { ...state.reports, [ticker]: entry } })),
+      clearReport: (ticker) =>
+        set((state) => {
+          const reports = { ...state.reports };
+          delete reports[ticker];
+          return { reports };
+        }),
+    }),
+    { name: "apex-alpha-reports" }
+  )
+);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { useAppStore, useSettingsStore } from "@/lib/store";
+import { useAppStore, useSettingsStore, useReportStore } from "@/lib/store";
 import { WORKFLOW_SECTIONS } from "@/lib/prompts";
 import CompanyHeader from "@/components/ui/CompanyHeader";
 import FinancialMetrics from "@/components/ui/FinancialMetrics";
@@ -31,6 +31,16 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
 
   useEffect(() => {
     setCurrentTicker(ticker);
+    // Restore a previously generated report for this ticker (persisted across
+    // navigation between features), otherwise start clean.
+    const cached = useReportStore.getState().reports[ticker];
+    if (cached) {
+      setSections(cached.sections);
+      setResearchGuide(cached.researchGuide || null);
+    } else {
+      setSections([]);
+      setResearchGuide(null);
+    }
     fetchData();
   }, [ticker]);
 
@@ -63,6 +73,17 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
       content: ""
     }));
     setSections(initialSections);
+
+    // Track the latest state locally so we can persist it as it streams,
+    // keeping the report saved even if the user switches features mid-way.
+    let liveSections: ReportSectionData[] = initialSections;
+    let liveGuide: any = null;
+    const persistReport = () =>
+      useReportStore.getState().saveReport(ticker, {
+        sections: liveSections,
+        researchGuide: liveGuide,
+        generatedAt: Date.now(),
+      });
 
     try {
       const res = await fetch(`/api/report/${ticker}`, {
@@ -114,29 +135,33 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
               const data = JSON.parse(eventDataStr);
 
               if (eventType === "research_guide") {
+                liveGuide = data;
                 setResearchGuide(data);
                 setProgress(15);
+                persistReport();
               } else if (eventType === "section_start") {
                 currentSectionId = data.section;
-                setSections(prev => prev.map(s => 
+                liveSections = liveSections.map(s =>
                   s.id === data.section ? { ...s, status: "loading" } : s
-                ));
+                );
+                setSections(liveSections);
               } else if (eventType === "section_chunk") {
-                setSections(prev => prev.map(s => 
+                liveSections = liveSections.map(s =>
                   s.id === currentSectionId ? { ...s, content: s.content + data.text } : s
-                ));
+                );
+                setSections(liveSections);
               } else if (eventType === "section_end") {
-                setSections(prev => {
-                  const idx = prev.findIndex(s => s.id === data.section);
-                  const newProg = 15 + Math.floor(((idx + 1) / prev.length) * 85);
-                  setProgress(newProg);
-                  return prev.map(s => 
-                    s.id === data.section ? { ...s, status: "done" } : s
-                  );
-                });
+                liveSections = liveSections.map(s =>
+                  s.id === data.section ? { ...s, status: "done" } : s
+                );
+                setSections(liveSections);
+                const idx = liveSections.findIndex(s => s.id === data.section);
+                setProgress(15 + Math.floor(((idx + 1) / liveSections.length) * 85));
+                persistReport(); // save after each completed section
               } else if (eventType === "done") {
                 setProgress(100);
                 setIsGenerating(false);
+                persistReport();
               } else if (eventType === "error") {
                 console.error("SSE Error:", data.message);
                 setGenError(data.message || "The AI engine returned an error.");
