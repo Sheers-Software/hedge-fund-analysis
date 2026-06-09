@@ -57,6 +57,8 @@ export default function Navbar() {
     setShowDropdown(false);
     if (pathname.includes("/valuation")) {
       router.push(`/valuation?ticker=${ticker}`);
+    } else if (pathname.includes("/charts")) {
+      router.push(`/charts?ticker=${ticker}`);
     } else {
       router.push(`/report/${ticker}`);
     }
@@ -97,6 +99,9 @@ export default function Navbar() {
           </Link>
           <Link href="/valuation" className={`nav-tab ${pathname.startsWith("/valuation") ? "active" : ""}`}>
             Valuation
+          </Link>
+          <Link href="/charts" className={`nav-tab ${pathname.startsWith("/charts") ? "active" : ""}`}>
+            Charts
           </Link>
         </div>
       </div>
