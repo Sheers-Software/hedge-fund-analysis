@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Search, Settings, Activity, Menu } from "lucide-react";
-import { useAppStore, useSettingsStore } from "@/lib/store";
+import { useAppStore, useSettingsStore, useHistoryStore } from "@/lib/store";
+import AccountBadge from "@/components/app/AccountBadge";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -52,15 +53,19 @@ export default function Navbar() {
     }
   };
 
-  const handleSelect = (ticker: string) => {
+  const handleSelect = (ticker: string, name?: string) => {
     setQuery("");
     setShowDropdown(false);
+    const t = ticker.toUpperCase();
     if (pathname.includes("/valuation")) {
-      router.push(`/valuation?ticker=${ticker}`);
+      useHistoryStore.getState().add({ ticker: t, name, kind: "valuation" });
+      router.push(`/valuation?ticker=${t}`);
     } else if (pathname.includes("/charts")) {
-      router.push(`/charts?ticker=${ticker}`);
+      useHistoryStore.getState().add({ ticker: t, name, kind: "charts" });
+      router.push(`/charts?ticker=${t}`);
     } else {
-      router.push(`/report/${ticker}`);
+      useHistoryStore.getState().add({ ticker: t, name, kind: "report" });
+      router.push(`/report/${t}`);
     }
   };
 
@@ -83,18 +88,17 @@ export default function Navbar() {
             <Menu size={16} />
           </button>
         )}
-        <Link href="/" className="navbar-brand">
+        <Link href="/app" className="navbar-brand">
           <div className="flex items-center gap-2">
             <Activity size={20} color="var(--accent)" />
             <span className="brand-name">Apex<span className="title-accent">Alpha</span></span>
           </div>
-          <span className="brand-tag">PRO</span>
         </Link>
       </div>
 
       <div className="navbar-center hidden md:block">
         <div className="nav-tabs">
-          <Link href="/" className={`nav-tab ${pathname === "/" || pathname.startsWith("/report") ? "active" : ""}`}>
+          <Link href="/app" className={`nav-tab ${pathname === "/app" || pathname.startsWith("/report") ? "active" : ""}`}>
             Research Hub
           </Link>
           <Link href="/valuation" className={`nav-tab ${pathname.startsWith("/valuation") ? "active" : ""}`}>
@@ -124,7 +128,7 @@ export default function Navbar() {
           {showDropdown && results.length > 0 && (
             <div className="search-dropdown visible">
               {results.map((r, i) => (
-                <div key={i} className="search-result-item" onClick={() => handleSelect(r.symbol)}>
+                <div key={i} className="search-result-item" onClick={() => handleSelect(r.symbol, r.description)}>
                   <span className="result-symbol">{r.symbol}</span>
                   <span className="result-name">{r.description}</span>
                 </div>
@@ -133,9 +137,12 @@ export default function Navbar() {
           )}
         </form>
 
-        <button className="settings-btn ml-2" onClick={() => setSettingsOpen(true)}>
+        <div className="ml-2">
+          <AccountBadge />
+        </div>
+
+        <button className="settings-btn ml-2" onClick={() => setSettingsOpen(true)} title="Advanced: bring your own API keys">
           <Settings size={14} />
-          <span className="hidden sm:inline">Settings</span>
           <span className={`key-status-dot ${keysValid ? "active" : "inactive"}`} />
         </button>
       </div>

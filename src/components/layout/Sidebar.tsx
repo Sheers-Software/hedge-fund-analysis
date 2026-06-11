@@ -29,7 +29,7 @@ export default function Sidebar({ children }: { children?: React.ReactNode }) {
             <div className="sidebar-empty">
               <div>Generate a report to see research guide.</div>
               <div className="flex gap-2 justify-center mt-4 md:hidden">
-                <Link href="/" className="text-xs text-blue-500 underline" onClick={() => setSidebarOpen(false)}>Research Hub</Link>
+                <Link href="/app" className="text-xs text-blue-500 underline" onClick={() => setSidebarOpen(false)}>Research Hub</Link>
                 <Link href="/valuation" className="text-xs text-blue-500 underline" onClick={() => setSidebarOpen(false)}>Valuation</Link>
               </div>
             </div>

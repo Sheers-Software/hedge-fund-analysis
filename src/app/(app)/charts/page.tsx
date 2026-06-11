@@ -4,7 +4,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import ChartsView from "@/components/charts/ChartsView";
 import { BarChart3 } from "lucide-react";
-import { useAppStore } from "@/lib/store";
+import { useAppStore, useHistoryStore } from "@/lib/store";
+import ProGate from "@/components/app/ProGate";
 
 function ChartsContent() {
   const searchParams = useSearchParams();
@@ -18,7 +19,11 @@ function ChartsContent() {
   }, []);
 
   useEffect(() => {
-    if (tickerQuery) setTicker(tickerQuery.toUpperCase());
+    if (tickerQuery) {
+      const t = tickerQuery.toUpperCase();
+      setTicker(t);
+      useHistoryStore.getState().add({ ticker: t, kind: "charts" });
+    }
   }, [tickerQuery]);
 
   const handleSample = (t: string) => router.push(`/charts?ticker=${t}`);
@@ -56,7 +61,14 @@ function ChartsContent() {
         <span className="charts-ticker-badge">{ticker}</span>
         <span className="charts-header-label">Historical Quarterly Charts</span>
       </div>
-      <ChartsView ticker={ticker} />
+      <ProGate
+        feature="chartsFull"
+        title="Full charts + forward projections are a Pro feature"
+        sub="See multi-year quarterly EPS, margins, and free cash flow with a 4-quarter forward projection. Included with Pro — $9/mo."
+        reason="Quarterly history charts and forward projections are included with Pro."
+      >
+        <ChartsView ticker={ticker} />
+      </ProGate>
     </main>
   );
 }
