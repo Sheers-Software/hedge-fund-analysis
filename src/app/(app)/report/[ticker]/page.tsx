@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { useAppStore, useSettingsStore } from "@/lib/store";
+import { useAppStore, useSettingsStore, useReportStore, useUserStore, useHistoryStore } from "@/lib/store";
+import { useGate } from "@/lib/useGate";
+import { track } from "@/lib/analytics";
 import { WORKFLOW_SECTIONS } from "@/lib/prompts";
 import CompanyHeader from "@/components/ui/CompanyHeader";
 import FinancialMetrics from "@/components/ui/FinancialMetrics";
@@ -18,6 +20,9 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
 
   const { geminiKey, finnhubKey } = useSettingsStore();
   const { setCurrentTicker, setSettingsOpen, researchGuide, setResearchGuide } = useAppStore();
+  const { guardQuota, guardPro } = useGate();
+  const recordReport = useUserStore((s) => s.recordReport);
+  const addHistory = useHistoryStore((s) => s.add);
 
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [loadingData, setLoadingData] = useState(true);
@@ -31,6 +36,16 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
 
   useEffect(() => {
     setCurrentTicker(ticker);
+    // Restore a previously generated report for this ticker (persisted across
+    // navigation between features), otherwise start clean.
+    const cached = useReportStore.getState().reports[ticker];
+    if (cached) {
+      setSections(cached.sections);
+      setResearchGuide(cached.researchGuide || null);
+    } else {
+      setSections([]);
+      setResearchGuide(null);
+    }
     fetchData();
   }, [ticker]);
 
@@ -42,6 +57,7 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
       });
       const data = await res.json();
       setCompanyData(data);
+      addHistory({ ticker, name: data?.info?.longName, kind: "report" });
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -63,6 +79,17 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
       content: ""
     }));
     setSections(initialSections);
+
+    // Track the latest state locally so we can persist it as it streams,
+    // keeping the report saved even if the user switches features mid-way.
+    let liveSections: ReportSectionData[] = initialSections;
+    let liveGuide: any = null;
+    const persistReport = () =>
+      useReportStore.getState().saveReport(ticker, {
+        sections: liveSections,
+        researchGuide: liveGuide,
+        generatedAt: Date.now(),
+      });
 
     try {
       const res = await fetch(`/api/report/${ticker}`, {
@@ -114,29 +141,35 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
               const data = JSON.parse(eventDataStr);
 
               if (eventType === "research_guide") {
+                liveGuide = data;
                 setResearchGuide(data);
                 setProgress(15);
+                persistReport();
               } else if (eventType === "section_start") {
                 currentSectionId = data.section;
-                setSections(prev => prev.map(s => 
+                liveSections = liveSections.map(s =>
                   s.id === data.section ? { ...s, status: "loading" } : s
-                ));
+                );
+                setSections(liveSections);
               } else if (eventType === "section_chunk") {
-                setSections(prev => prev.map(s => 
+                liveSections = liveSections.map(s =>
                   s.id === currentSectionId ? { ...s, content: s.content + data.text } : s
-                ));
+                );
+                setSections(liveSections);
               } else if (eventType === "section_end") {
-                setSections(prev => {
-                  const idx = prev.findIndex(s => s.id === data.section);
-                  const newProg = 15 + Math.floor(((idx + 1) / prev.length) * 85);
-                  setProgress(newProg);
-                  return prev.map(s => 
-                    s.id === data.section ? { ...s, status: "done" } : s
-                  );
-                });
+                liveSections = liveSections.map(s =>
+                  s.id === data.section ? { ...s, status: "done" } : s
+                );
+                setSections(liveSections);
+                const idx = liveSections.findIndex(s => s.id === data.section);
+                setProgress(15 + Math.floor(((idx + 1) / liveSections.length) * 85));
+                persistReport(); // save after each completed section
               } else if (eventType === "done") {
                 setProgress(100);
                 setIsGenerating(false);
+                persistReport();
+                recordReport(); // count against the monthly quota
+                track("StartTrial"); // first real "aha" — a completed memo
               } else if (eventType === "error") {
                 console.error("SSE Error:", data.message);
                 setGenError(data.message || "The AI engine returned an error.");
@@ -298,17 +331,23 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
           <div className="report-actions mt-2 md:mt-0">
             {sections.some(s => s.status === "done") && (
               <>
-                <button className="export-btn" onClick={handlePrintPdf}>
+                <button
+                  className="export-btn"
+                  onClick={() => guardPro("exportEnabled", "PDF & Markdown export is a Pro feature — upgrade to save and share your reports.") && handlePrintPdf()}
+                >
                   <Printer size={14} /> Export PDF
                 </button>
-                <button className="export-btn" onClick={handleExport}>
+                <button
+                  className="export-btn"
+                  onClick={() => guardPro("exportEnabled", "PDF & Markdown export is a Pro feature — upgrade to save and share your reports.") && handleExport()}
+                >
                   <Download size={14} /> Export MD
                 </button>
               </>
             )}
-            <button 
-              className="btn-save !px-4 !py-1.5 ml-2" 
-              onClick={generateReport}
+            <button
+              className="btn-save !px-4 !py-1.5 ml-2"
+              onClick={() => guardQuota("reports", generateReport)}
               disabled={isGenerating}
             >
               {isGenerating ? "Generating..." : "Generate"}

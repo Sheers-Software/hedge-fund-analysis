@@ -4,7 +4,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import ValuationCalculator from "@/components/valuation/ValuationCalculator";
 import { Activity } from "lucide-react";
-import { useAppStore } from "@/lib/store";
+import { useAppStore, useHistoryStore } from "@/lib/store";
+import ProGate from "@/components/app/ProGate";
 
 function ValuationContent() {
   const searchParams = useSearchParams();
@@ -18,7 +19,11 @@ function ValuationContent() {
   }, []);
 
   useEffect(() => {
-    if (tickerQuery) setTicker(tickerQuery.toUpperCase());
+    if (tickerQuery) {
+      const t = tickerQuery.toUpperCase();
+      setTicker(t);
+      useHistoryStore.getState().add({ ticker: t, kind: "valuation" });
+    }
   }, [tickerQuery]);
 
   const handleSample = (t: string) => {
@@ -52,7 +57,14 @@ function ValuationContent() {
 
   return (
     <main className="val-main">
-      <ValuationCalculator ticker={ticker} />
+      <ProGate
+        feature="valuationFull"
+        title="The full 5-year valuation model is a Pro feature"
+        sub="Set Bull / Base / Bear assumptions, auto-fill fundamentals, and get a fair-value estimate you control. Unlimited with Pro — $9/mo."
+        reason="The interactive 5-year valuation model (Bull / Base / Bear) is included with Pro."
+      >
+        <ValuationCalculator ticker={ticker} />
+      </ProGate>
       <div className="val-disclaimer mt-8">
         ⚠ This tool is for educational purposes only. Projections are hypothetical and do not constitute financial advice.
       </div>
