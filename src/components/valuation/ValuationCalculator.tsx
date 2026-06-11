@@ -57,6 +57,7 @@ function parseSharesStr(str: string | null) {
 
 function ScenarioTable({
   sc,
+  ticker,
   data,
   onChange,
   seedRevenue,
@@ -106,15 +107,20 @@ function ScenarioTable({
         <span className="val-scenario-label">{sc.toUpperCase()} CASE</span>
         <div className="val-scenario-actions">
           <button className="val-load-btn" onClick={() => {
-            const saved = localStorage.getItem(`apexalpha_val_${sc}`);
+            const saved = localStorage.getItem(`apexalpha_val_${ticker}_${sc}`);
             if (saved) {
-              const obj = JSON.parse(saved);
-              onChange(sc, obj.data);
+              try {
+                onChange(sc, JSON.parse(saved).data);
+              } catch {
+                alert("Saved data was corrupted and could not be loaded.");
+              }
+            } else {
+              alert(`No saved ${sc.toUpperCase()} case for ${ticker} yet.`);
             }
           }}>LOAD</button>
           <button className="val-save-btn" onClick={() => {
-            localStorage.setItem(`apexalpha_val_${sc}`, JSON.stringify({ data }));
-            alert("Saved locally!");
+            localStorage.setItem(`apexalpha_val_${ticker}_${sc}`, JSON.stringify({ data }));
+            alert(`Saved ${sc.toUpperCase()} case for ${ticker} locally.`);
           }}>SAVE</button>
         </div>
       </div>
@@ -249,8 +255,17 @@ export default function ValuationCalculator({ ticker }: { ticker: string }) {
       const fwdNetIncome = f.eps_fwd && sh ? f.eps_fwd * sh : null;
       setSeedNetIncome(fwdNetIncome ?? f.net_income ?? 0);
 
-      const savedBull = localStorage.getItem(`apexalpha_val_bull_${ticker}`);
-      if (savedBull) setScenarios(s => ({ ...s, bull: JSON.parse(savedBull).data }));
+      // Restore any saved assumptions for *this* ticker; fall back to the
+      // shared defaults for scenarios that were never saved. Rebuilding the
+      // whole object also resets stale custom values when switching tickers.
+      const restored = { ...SCENARIO_DEFAULTS };
+      (['bull', 'base', 'bear'] as const).forEach(sc => {
+        const saved = localStorage.getItem(`apexalpha_val_${ticker}_${sc}`);
+        if (saved) {
+          try { restored[sc] = JSON.parse(saved).data; } catch { /* ignore corrupt entry */ }
+        }
+      });
+      setScenarios(restored);
 
     } catch (e: any) {
       setError(e.message);
@@ -321,6 +336,7 @@ export default function ValuationCalculator({ ticker }: { ticker: string }) {
           <ScenarioTable
             key={sc}
             sc={sc}
+            ticker={ticker}
             data={scenarios[sc]}
             onChange={handleScenarioChange}
             seedRevenue={seedRevenue}
