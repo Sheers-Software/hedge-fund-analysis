@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Activity } from "lucide-react";
 import { useAppStore, useUserStore, useHistoryStore } from "@/lib/store";
 import { useGate } from "@/lib/useGate";
+import { TIERS } from "@/lib/tiers";
 import FairValueCheck from "@/components/app/FairValueCheck";
 import RecentSearches from "@/components/app/RecentSearches";
 import type { FairValueResult } from "@/lib/fairValue";
@@ -15,7 +16,7 @@ function Dashboard() {
   const router = useRouter();
   const params = useSearchParams();
   const { setCurrentTicker, setSidebarOpen, openUpgrade } = useAppStore();
-  const { isPro, isSignedUp, remainingChecks, remainingReports, guardQuota } = useGate();
+  const { isPro, isSignedUp, tier, remainingChecks, remainingReports, guardQuota } = useGate();
   const recordCheck = useUserStore((s) => s.recordCheck);
   const addHistory = useHistoryStore((s) => s.add);
 
@@ -93,7 +94,18 @@ function Dashboard() {
           )}
           {mounted && isPro && (
             <div className="usage-meter">
-              <span style={{ color: "var(--green)" }}>● Pro — unlimited reports &amp; checks</span>
+              <span style={{ color: "var(--green)" }}>● {TIERS[tier].name} — unlimited reports &amp; checks</span>
+              {tier === "basic" && (
+                <>
+                  <span className="usage-sep" />
+                  <button
+                    onClick={() => openUpgrade("Upgrade to Premium for the AI Intelligence terminal.", "premium")}
+                    style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Go Premium
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>

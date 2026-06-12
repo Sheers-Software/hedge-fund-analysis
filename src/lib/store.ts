@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { ReportSectionData } from "@/components/ui/SectionCard";
-import { TIERS, type Tier, type TierLimits } from "@/lib/tiers";
+import { TIERS, QUOTA_UNLOCK_TIER, meetsTier, type Tier, type TierLimits } from "@/lib/tiers";
+import { hashPassword, verifyPassword, validateEmail, validatePassword, genVerificationCode } from "@/lib/auth";
 
 interface SettingsState {
   geminiKey: string;
@@ -46,7 +47,8 @@ interface AppState {
   closeSignup: () => void;
   isUpgradeOpen: boolean;
   upgradeReason: string | null;
-  openUpgrade: (reason?: string) => void;
+  upgradeTier: Tier | null; // which tier the gate wants the user to reach
+  openUpgrade: (reason?: string, tier?: Tier) => void;
   closeUpgrade: () => void;
 }
 
@@ -69,7 +71,9 @@ export const useAppStore = create<AppState>((set) => ({
   closeSignup: () => set({ isSignupOpen: false, afterAuth: null }),
   isUpgradeOpen: false,
   upgradeReason: null,
-  openUpgrade: (reason) => set({ isUpgradeOpen: true, upgradeReason: reason ?? null }),
+  upgradeTier: null,
+  openUpgrade: (reason, tier) =>
+    set({ isUpgradeOpen: true, upgradeReason: reason ?? null, upgradeTier: tier ?? null }),
   closeUpgrade: () => set({ isUpgradeOpen: false }),
 }));
 
@@ -104,10 +108,14 @@ export const useReportStore = create<ReportState>()(
   )
 );
 
-// ── User / account / tier / quota ────────────────────────────────────
-// Validation-MVP account model: no backend. Email capture is the "signup"
-// (a Meta Lead), tier + monthly usage live in localStorage. Upgrades flip
-// the tier optimistically when the user returns from the Stripe Payment Link.
+// ── User / accounts / auth / tier / quota ────────────────────────────
+// Client-side account model (validation MVP — see src/lib/auth.ts for the
+// security caveat). `accounts` is the local "user DB" keyed by email; the
+// active session mirrors the logged-in account onto top-level fields
+// (email/tier/usage/…) so every existing `useUserStore(s => s.email|tier|…)`
+// selector keeps working. Logout clears the session but keeps the account, so
+// relogin works. Upgrades flip the active account's tier (optimistically, or
+// after returning from the Stripe Payment Link).
 
 function currentPeriod(): string {
   const d = new Date();
@@ -120,23 +128,63 @@ export interface UsageState {
   checks: number;
 }
 
+export interface Account {
+  email: string;
+  passwordHash: string;
+  salt: string;
+  verified: boolean;
+  tier: Tier;
+  signedUpAt: number;
+  proSince: number | null;
+  usage: UsageState;
+}
+
+export interface PendingVerification {
+  email: string;
+  code: string;
+  expiresAt: number;
+}
+
+export interface AuthResult {
+  ok: boolean;
+  error?: string;
+  /** Verification code, surfaced so the dev UI can show it (no ESP wired yet). */
+  code?: string;
+  /** True when login/register needs an email-verification step next. */
+  needsVerification?: boolean;
+}
+
 interface UserState {
+  // Active-session mirror of the logged-in account (logged-out defaults below).
   email: string | null;
   tier: Tier;
   signedUpAt: number | null;
   proSince: number | null;
   usage: UsageState;
 
+  // Account "DB" + session.
+  accounts: Record<string, Account>;
+  sessionEmail: string | null;
+  pending: PendingVerification | null;
+
   // derived helpers
-  isSignedUp: () => boolean;
+  isSignedUp: () => boolean; // logged in with a verified account
+  isLoggedIn: () => boolean;
+  hasAccount: (email: string) => boolean;
   limits: () => TierLimits;
   remaining: (kind: "reports" | "checks") => number; // Infinity when unlimited
   canUse: (kind: "reports" | "checks") => boolean;
 
-  // mutations
-  signup: (email: string) => void;
+  // auth lifecycle
+  register: (email: string, password: string) => Promise<AuthResult>;
+  verifyEmail: (code: string) => AuthResult;
+  resendCode: () => string | null;
+  login: (email: string, password: string) => Promise<AuthResult>;
+  logout: () => void;
+
+  // tier / billing / usage
   setTier: (tier: Tier) => void;
-  upgrade: () => void;
+  upgrade: (tier?: Tier) => void;
   recordReport: () => void;
   recordCheck: () => void;
   reset: () => void;
@@ -149,16 +197,50 @@ function normalizedUsage(u: UsageState): UsageState {
   return u.period === currentPeriod() ? u : freshUsage();
 }
 
+const LOGGED_OUT = {
+  email: null,
+  tier: "free" as Tier,
+  signedUpAt: null,
+  proSince: null,
+  usage: freshUsage(),
+};
+
+// Flatten an account onto the active-session mirror fields.
+function activeFromAccount(acc: Account) {
+  return {
+    email: acc.email,
+    tier: acc.tier,
+    signedUpAt: acc.signedUpAt,
+    proSince: acc.proSince,
+    usage: normalizedUsage(acc.usage),
+  };
+}
+
+// Write the active session's usage back into its account record.
+function syncUsage(
+  s: { sessionEmail: string | null; accounts: Record<string, Account> },
+  usage: UsageState
+): Record<string, Account> {
+  if (!s.sessionEmail || !s.accounts[s.sessionEmail]) return s.accounts;
+  return { ...s.accounts, [s.sessionEmail]: { ...s.accounts[s.sessionEmail], usage } };
+}
+
+const CODE_TTL_MS = 15 * 60 * 1000;
+
 export const useUserStore = create<UserState>()(
   persist(
     (set, get) => ({
-      email: null,
-      tier: "free",
-      signedUpAt: null,
-      proSince: null,
-      usage: freshUsage(),
+      ...LOGGED_OUT,
+      accounts: {},
+      sessionEmail: null,
+      pending: null,
 
-      isSignedUp: () => !!get().email,
+      isSignedUp: () => {
+        const s = get();
+        return !!s.sessionEmail && !!s.accounts[s.sessionEmail]?.verified;
+      },
+      isLoggedIn: () => !!get().sessionEmail,
+      hasAccount: (email) => !!get().accounts[email.trim().toLowerCase()],
       limits: () => TIERS[get().tier].limits,
       remaining: (kind) => {
         const cap =
@@ -171,38 +253,128 @@ export const useUserStore = create<UserState>()(
       },
       canUse: (kind) => get().remaining(kind) > 0,
 
-      signup: (email) =>
+      register: async (emailRaw, password) => {
+        const email = emailRaw.trim().toLowerCase();
+        const emailErr = validateEmail(email);
+        if (emailErr) return { ok: false, error: emailErr };
+        const pwErr = validatePassword(password);
+        if (pwErr) return { ok: false, error: pwErr };
+
+        const existing = get().accounts[email];
+        if (existing?.verified)
+          return { ok: false, error: "An account with this email already exists. Log in instead." };
+
+        const { hash, salt } = await hashPassword(password);
+        const account: Account = existing
+          ? { ...existing, passwordHash: hash, salt }
+          : {
+              email,
+              passwordHash: hash,
+              salt,
+              verified: false,
+              tier: "free",
+              signedUpAt: Date.now(),
+              proSince: null,
+              usage: freshUsage(),
+            };
+        const code = genVerificationCode();
         set((s) => ({
-          email: email.trim().toLowerCase(),
-          signedUpAt: s.signedUpAt ?? Date.now(),
-        })),
-      setTier: (tier) => set({ tier }),
-      upgrade: () => set({ tier: "pro", proSince: Date.now() }),
+          accounts: { ...s.accounts, [email]: account },
+          pending: { email, code, expiresAt: Date.now() + CODE_TTL_MS },
+        }));
+        return { ok: true, needsVerification: true, code };
+      },
+
+      verifyEmail: (code) => {
+        const { pending, accounts } = get();
+        if (!pending) return { ok: false, error: "Nothing to verify. Start over." };
+        if (Date.now() > pending.expiresAt)
+          return { ok: false, error: "That code expired. Resend a new one." };
+        if (code.trim() !== pending.code)
+          return { ok: false, error: "Incorrect code. Check and try again." };
+        const acc = accounts[pending.email];
+        if (!acc) return { ok: false, error: "Account not found." };
+        const verified: Account = { ...acc, verified: true };
+        set((s) => ({
+          accounts: { ...s.accounts, [verified.email]: verified },
+          sessionEmail: verified.email,
+          pending: null,
+          ...activeFromAccount(verified),
+        }));
+        return { ok: true };
+      },
+
+      resendCode: () => {
+        const { pending } = get();
+        if (!pending) return null;
+        const code = genVerificationCode();
+        set({ pending: { ...pending, code, expiresAt: Date.now() + CODE_TTL_MS } });
+        return code;
+      },
+
+      login: async (emailRaw, password) => {
+        const email = emailRaw.trim().toLowerCase();
+        const acc = get().accounts[email];
+        if (!acc) return { ok: false, error: "No account found for that email. Sign up first." };
+        const ok = await verifyPassword(password, acc.passwordHash, acc.salt);
+        if (!ok) return { ok: false, error: "Incorrect password. Try again." };
+        if (!acc.verified) {
+          const code = genVerificationCode();
+          set({ pending: { email, code, expiresAt: Date.now() + CODE_TTL_MS } });
+          return { ok: false, needsVerification: true, code, error: "Verify your email to finish signing in." };
+        }
+        set({ sessionEmail: email, pending: null, ...activeFromAccount(acc) });
+        return { ok: true };
+      },
+
+      logout: () => set({ sessionEmail: null, pending: null, ...LOGGED_OUT }),
+
+      setTier: (tier) => {
+        const { sessionEmail, accounts } = get();
+        if (!sessionEmail || !accounts[sessionEmail]) return set({ tier });
+        const acc: Account = { ...accounts[sessionEmail], tier };
+        set((s) => ({ accounts: { ...s.accounts, [sessionEmail]: acc }, tier }));
+      },
+
+      upgrade: (tier = "premium") => {
+        const { sessionEmail, accounts } = get();
+        const proSince = Date.now();
+        if (!sessionEmail || !accounts[sessionEmail]) return set({ tier, proSince });
+        const acc: Account = { ...accounts[sessionEmail], tier, proSince };
+        set((s) => ({ accounts: { ...s.accounts, [sessionEmail]: acc }, tier, proSince }));
+      },
+
       recordReport: () =>
         set((s) => {
           const u = normalizedUsage(s.usage);
-          return { usage: { ...u, reports: u.reports + 1 } };
+          const usage = { ...u, reports: u.reports + 1 };
+          const accounts = syncUsage(s, usage);
+          return { usage, accounts };
         }),
       recordCheck: () =>
         set((s) => {
           const u = normalizedUsage(s.usage);
-          return { usage: { ...u, checks: u.checks + 1 } };
+          const usage = { ...u, checks: u.checks + 1 };
+          const accounts = syncUsage(s, usage);
+          return { usage, accounts };
         }),
-      reset: () =>
-        set({
-          email: null,
-          tier: "free",
-          signedUpAt: null,
-          proSince: null,
-          usage: freshUsage(),
-        }),
+      reset: () => set({ ...LOGGED_OUT, accounts: {}, sessionEmail: null, pending: null }),
     }),
-    { name: "apex-alpha-user" }
+    {
+      name: "apex-alpha-user",
+      version: 1, // shape changed (accounts + session); discard pre-auth state
+      migrate: (): any => ({
+        ...LOGGED_OUT,
+        accounts: {},
+        sessionEmail: null,
+        pending: null,
+      }),
+    }
   )
 );
 
 // ── Search / query history (recent & last searched) ──────────────────
-export type HistoryKind = "report" | "check" | "valuation" | "charts";
+export type HistoryKind = "report" | "check" | "valuation" | "charts" | "intel";
 
 export interface HistoryItem {
   ticker: string;

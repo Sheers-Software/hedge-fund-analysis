@@ -333,13 +333,13 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
               <>
                 <button
                   className="export-btn"
-                  onClick={() => guardPro("exportEnabled", "PDF & Markdown export is a Pro feature — upgrade to save and share your reports.") && handlePrintPdf()}
+                  onClick={() => guardPro("exportEnabled", "PDF & Markdown export is a Basic feature — upgrade to save and share your reports.") && handlePrintPdf()}
                 >
                   <Printer size={14} /> Export PDF
                 </button>
                 <button
                   className="export-btn"
-                  onClick={() => guardPro("exportEnabled", "PDF & Markdown export is a Pro feature — upgrade to save and share your reports.") && handleExport()}
+                  onClick={() => guardPro("exportEnabled", "PDF & Markdown export is a Basic feature — upgrade to save and share your reports.") && handleExport()}
                 >
                   <Download size={14} /> Export MD
                 </button>

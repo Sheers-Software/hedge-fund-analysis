@@ -1,11 +1,28 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Search, Settings, Activity, Menu } from "lucide-react";
+import { Search, Settings, Activity, Menu, Lock } from "lucide-react";
 import { useAppStore, useSettingsStore, useHistoryStore } from "@/lib/store";
+import { useGate } from "@/lib/useGate";
+import { TIERS, requiredTierFor, type GatedFeature } from "@/lib/tiers";
 import AccountBadge from "@/components/app/AccountBadge";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+
+// Nav tabs and the tier each one requires. A locked tab shows a lock icon and
+// opens the signup/upgrade popup instead of navigating.
+type NavTab = {
+  href: string;
+  label: string;
+  isActive: (p: string) => boolean;
+  feature?: GatedFeature;
+};
+const NAV_TABS: NavTab[] = [
+  { href: "/app", label: "Research Hub", isActive: (p) => p === "/app" || p.startsWith("/report") },
+  { href: "/intel", label: "Intelligence", isActive: (p) => p.startsWith("/intel"), feature: "intelFull" },
+  { href: "/valuation", label: "Valuation", isActive: (p) => p.startsWith("/valuation"), feature: "valuationFull" },
+  { href: "/charts", label: "Charts", isActive: (p) => p.startsWith("/charts"), feature: "chartsFull" },
+];
 
 export default function Navbar() {
   const [query, setQuery] = useState("");
@@ -16,9 +33,21 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   
-  const { toggleSidebar, setSettingsOpen } = useAppStore();
+  const { toggleSidebar, setSettingsOpen, openSignup, openUpgrade } = useAppStore();
   const { geminiKey, finnhubKey } = useSettingsStore();
+  const { isUnlocked, isSignedUp } = useGate();
   const keysValid = geminiKey && finnhubKey;
+
+  // Persisted tier isn't known on the server — resolve locks only after mount.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const onLockedClick = (feature: GatedFeature) => {
+    const target = requiredTierFor(feature);
+    const reason = `${TIERS[target].name} unlocks this — ${TIERS[target].tagline.toLowerCase()}`;
+    if (!isSignedUp) openSignup(reason);
+    else openUpgrade(reason, target);
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -57,7 +86,10 @@ export default function Navbar() {
     setQuery("");
     setShowDropdown(false);
     const t = ticker.toUpperCase();
-    if (pathname.includes("/valuation")) {
+    if (pathname.includes("/intel")) {
+      useHistoryStore.getState().add({ ticker: t, name, kind: "intel" });
+      router.push(`/intel/${t}`);
+    } else if (pathname.includes("/valuation")) {
       useHistoryStore.getState().add({ ticker: t, name, kind: "valuation" });
       router.push(`/valuation?ticker=${t}`);
     } else if (pathname.includes("/charts")) {
@@ -98,15 +130,29 @@ export default function Navbar() {
 
       <div className="navbar-center hidden md:block">
         <div className="nav-tabs">
-          <Link href="/app" className={`nav-tab ${pathname === "/app" || pathname.startsWith("/report") ? "active" : ""}`}>
-            Research Hub
-          </Link>
-          <Link href="/valuation" className={`nav-tab ${pathname.startsWith("/valuation") ? "active" : ""}`}>
-            Valuation
-          </Link>
-          <Link href="/charts" className={`nav-tab ${pathname.startsWith("/charts") ? "active" : ""}`}>
-            Charts
-          </Link>
+          {NAV_TABS.map((tab) => {
+            const active = tab.isActive(pathname);
+            const locked = mounted && !!tab.feature && !isUnlocked(tab.feature);
+            if (locked && tab.feature) {
+              const feature = tab.feature;
+              return (
+                <button
+                  key={tab.href}
+                  className={`nav-tab nav-tab-locked ${active ? "active" : ""}`}
+                  onClick={() => onLockedClick(feature)}
+                  title={`${TIERS[requiredTierFor(feature)].name} feature — click to unlock`}
+                >
+                  {tab.label}
+                  <Lock size={11} className="nav-tab-lock" />
+                </button>
+              );
+            }
+            return (
+              <Link key={tab.href} href={tab.href} className={`nav-tab ${active ? "active" : ""}`}>
+                {tab.label}
+              </Link>
+            );
+          })}
         </div>
       </div>
 

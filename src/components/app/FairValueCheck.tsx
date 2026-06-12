@@ -141,6 +141,12 @@ export default function FairValueCheck({
             </button>
             <button
               className="export-btn"
+              onClick={() => router.push(`/intel/${ticker}`)}
+            >
+              Open AI Intelligence →
+            </button>
+            <button
+              className="export-btn"
               onClick={() => router.push(`/valuation?ticker=${ticker}`)}
             >
               Build your own valuation
