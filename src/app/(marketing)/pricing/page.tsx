@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import PricingTable from "@/components/marketing/PricingTable";
-import { PRO_PRICE } from "@/lib/tiers";
+import { BASIC_PRICE } from "@/lib/tiers";
 
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Free forever to start: 1 full AI research memo + 3 fair-value checks every month. Go Pro for $9/mo for unlimited research, the full valuation model, charts, and PDF export.",
+    "Free forever to start: 1 full AI research memo + 3 fair-value checks every month. Basic ($9/mo) unlocks unlimited research, the full valuation model, charts, and PDF export. Premium ($19/mo) adds the AI Intelligence terminal.",
 };
 
 export default function PricingPage() {
@@ -15,7 +15,7 @@ export default function PricingPage() {
     <section className="mkt-section mkt-pricing-page">
       <div className="mkt-eyebrow">Simple pricing</div>
       <h1 className="mkt-section-title" style={{ fontSize: "2.2rem" }}>
-        Hedge-fund-grade research for ${PRO_PRICE}/month
+        Hedge-fund-grade research from ${BASIC_PRICE}/month
       </h1>
       <p className="mkt-section-sub">
         Try the full quality on the free plan first. Upgrade only when ApexAlpha

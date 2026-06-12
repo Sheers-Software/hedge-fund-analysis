@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
 import { useGate } from "@/lib/useGate";
+import { TIERS, requiredTierFor } from "@/lib/tiers";
 
 /**
  * Wraps a Pro-only feature. Pro users see `children` normally; free users see
@@ -16,13 +17,14 @@ export default function ProGate({
   reason,
   children,
 }: {
-  feature: "valuationFull" | "chartsFull" | "exportEnabled";
+  feature: "valuationFull" | "chartsFull" | "intelFull" | "exportEnabled";
   title: string;
   sub: string;
   reason: string;
   children: React.ReactNode;
 }) {
   const { limits, guardPro } = useGate();
+  const targetTier = TIERS[requiredTierFor(feature)].name;
 
   // Deterministic pre-hydration render (persisted tier isn't known on the
   // server): show a stable blurred preview, then resolve gating after mount.
@@ -52,7 +54,7 @@ export default function ProGate({
         <div className="lock-title">{title}</div>
         <div className="lock-sub">{sub}</div>
         <button className="mkt-btn mkt-btn-primary" onClick={() => guardPro(feature, reason)}>
-          Unlock with Pro →
+          Unlock with {targetTier} →
         </button>
       </div>
     </div>

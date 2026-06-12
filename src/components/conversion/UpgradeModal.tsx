@@ -1,91 +1,95 @@
 "use client";
 
 import { useUserStore, useAppStore } from "@/lib/store";
-import { TIERS, PRO_PRICE, STRIPE_PAYMENT_LINK } from "@/lib/tiers";
+import { TIERS, PAID_TIERS, priceFor, stripeLinkFor, type Tier } from "@/lib/tiers";
 import { trackInitiateCheckout } from "@/lib/analytics";
-import { Check, Zap } from "lucide-react";
+import { Check, Zap, Crown } from "lucide-react";
 
-// The paywall. Triggered whenever a free user hits a Pro-only feature or a
-// quota limit. CTA points at a Stripe Payment Link (validation-MVP billing).
+// The paywall. Triggered when a user hits a tier-locked feature or quota.
+// Shows the paid tiers, highlights the one that unlocks what they tried to do,
+// and routes each CTA to its own Stripe Payment Link (validation-MVP billing).
 export default function UpgradeModal() {
-  const { isUpgradeOpen, upgradeReason, closeUpgrade } = useAppStore();
+  const { isUpgradeOpen, upgradeReason, upgradeTier, closeUpgrade } = useAppStore();
   const upgrade = useUserStore((s) => s.upgrade);
   const email = useUserStore((s) => s.email);
+  const currentTier = useUserStore((s) => s.tier);
 
-  const startCheckout = () => {
-    trackInitiateCheckout(PRO_PRICE);
-    if (STRIPE_PAYMENT_LINK) {
-      // Prefill + tag the return so we can flip the tier on come-back.
-      const url = new URL(STRIPE_PAYMENT_LINK);
+  // Which tier to spotlight: the gate's target, else the top tier.
+  const target: Tier = upgradeTier ?? "premium";
+
+  const startCheckout = (tier: Exclude<Tier, "free">) => {
+    trackInitiateCheckout(priceFor(tier));
+    const link = stripeLinkFor(tier);
+    if (link) {
+      // Remember which tier was purchased so the return handler flips correctly.
+      try { localStorage.setItem("apex-alpha-pending-tier", tier); } catch {}
+      const url = new URL(link);
       if (email) url.searchParams.set("prefilled_email", email);
       const ret = `${window.location.origin}${window.location.pathname}?upgraded=1`;
       url.searchParams.set("redirect", ret);
       window.location.href = url.toString();
     } else {
-      // No payment link configured yet (e.g. local/dev) — optimistically
-      // unlock so the funnel is fully testable end-to-end.
-      upgrade();
+      // No payment link configured (local/dev) — optimistically unlock so the
+      // funnel is fully testable end-to-end.
+      upgrade(tier);
       closeUpgrade();
     }
   };
 
   return (
     <div className={`modal-overlay ${isUpgradeOpen ? "open" : ""}`} onClick={closeUpgrade}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-box modal-box-wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="flex items-center gap-2">
             <Zap size={18} color="var(--accent)" />
-            <span className="modal-title">Upgrade to Pro</span>
+            <span className="modal-title">Choose your plan</span>
           </div>
-          <button className="modal-close-btn" onClick={closeUpgrade}>
-            ✕
-          </button>
+          <button className="modal-close-btn" onClick={closeUpgrade}>✕</button>
         </div>
 
         <p className="modal-subtitle">
-          {upgradeReason ||
-            "You've reached the limits of the free plan. Unlock the full toolkit."}
+          {upgradeReason || "Unlock the full toolkit. Cancel anytime."}
         </p>
 
-        <div
-          className="flex items-baseline gap-2 mb-4"
-          style={{ paddingBottom: 14, borderBottom: "1px solid var(--border)" }}
-        >
-          <span style={{ fontSize: "2.2rem", fontWeight: 800, letterSpacing: "-.02em" }}>
-            ${PRO_PRICE}
-          </span>
-          <span style={{ color: "var(--t3)", fontSize: ".85rem" }}>/ month</span>
-          <span
-            style={{
-              marginLeft: "auto",
-              fontSize: ".7rem",
-              color: "var(--green)",
-              background: "rgba(16,185,129,.12)",
-              border: "1px solid rgba(16,185,129,.25)",
-              borderRadius: 4,
-              padding: "3px 8px",
-              fontWeight: 700,
-            }}
-          >
-            Cancel anytime
-          </span>
+        <div className="upg-grid">
+          {PAID_TIERS.map((id) => {
+            const t = TIERS[id];
+            const isTarget = id === target;
+            const owned = currentTier === id;
+            return (
+              <div key={id} className={`upg-card ${isTarget ? "upg-card-target" : ""}`}>
+                {isTarget && <div className="upg-card-flag">Recommended</div>}
+                <div className="upg-card-name">
+                  {id === "premium" && <Crown size={14} color="var(--amber)" />}
+                  {t.name}
+                </div>
+                <div className="upg-card-price">
+                  <span className="upg-amount">${t.priceMonthly}</span>
+                  <span className="upg-period">/ mo</span>
+                </div>
+                <p className="upg-tagline">{t.tagline}</p>
+                <button
+                  className={`mkt-btn ${isTarget ? "mkt-btn-primary" : "mkt-btn-ghost"} mkt-btn-block`}
+                  onClick={() => startCheckout(id)}
+                  disabled={owned}
+                >
+                  {owned ? "Current plan" : `Get ${t.name} — $${t.priceMonthly}/mo`}
+                </button>
+                <ul className="upg-features">
+                  {t.features.map((f) => (
+                    <li key={f}>
+                      <Check size={14} color={isTarget ? "var(--green)" : "var(--t2)"} style={{ flexShrink: 0 }} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
         </div>
 
-        <ul className="flex flex-col gap-2 mb-5" style={{ listStyle: "none" }}>
-          {TIERS.pro.features.map((f) => (
-            <li key={f} className="flex items-center gap-2" style={{ fontSize: ".85rem", color: "var(--t1)" }}>
-              <Check size={15} color="var(--green)" style={{ flexShrink: 0 }} />
-              {f}
-            </li>
-          ))}
-        </ul>
-
-        <button className="btn-save" style={{ width: "100%" }} onClick={startCheckout}>
-          Upgrade for ${PRO_PRICE}/mo →
-        </button>
-
         <p className="modal-subtitle mt-3 mb-0" style={{ textAlign: "center", fontSize: ".7rem" }}>
-          Research & educational tool. Not investment advice.
+          Research &amp; educational tool. Not investment advice.
         </p>
       </div>
     </div>

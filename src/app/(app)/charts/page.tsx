@@ -63,9 +63,9 @@ function ChartsContent() {
       </div>
       <ProGate
         feature="chartsFull"
-        title="Full charts + forward projections are a Pro feature"
-        sub="See multi-year quarterly EPS, margins, and free cash flow with a 4-quarter forward projection. Included with Pro — $9/mo."
-        reason="Quarterly history charts and forward projections are included with Pro."
+        title="Full charts + forward projections are a Basic feature"
+        sub="See multi-year quarterly EPS, margins, and free cash flow with a 4-quarter forward projection. Included with Basic — $9/mo."
+        reason="Quarterly history charts and forward projections are included with Basic."
       >
         <ChartsView ticker={ticker} />
       </ProGate>
