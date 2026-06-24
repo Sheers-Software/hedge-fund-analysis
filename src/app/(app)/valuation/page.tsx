@@ -59,9 +59,10 @@ function ValuationContent() {
     <main className="val-main">
       <ProGate
         feature="valuationFull"
+        ticker={ticker}
         title="The full 5-year valuation model is a Basic feature"
-        sub="Set Bull / Base / Bear assumptions, auto-fill fundamentals, and get a fair-value estimate you control. Unlimited with Basic — $9/mo."
-        reason="The interactive 5-year valuation model (Bull / Base / Bear) is included with Basic."
+        sub="Set Bull / Base / Bear assumptions, auto-fill fundamentals, and get a fair-value estimate you control. Included with the annual plan — or unlock just this ticker for $7."
+        reason="The interactive 5-year valuation model (Bull / Base / Bear) is included with the annual plan."
       >
         <ValuationCalculator ticker={ticker} />
       </ProGate>

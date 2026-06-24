@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAppStore, useUserStore } from "@/lib/store";
-import { trackLead, track } from "@/lib/analytics";
+import { trackCompleteRegistration } from "@/lib/analytics";
 import { Activity, Mail, Lock, ArrowLeft } from "lucide-react";
 
 type Mode = "signup" | "login" | "verify";
@@ -55,8 +55,8 @@ export default function SignupModal() {
     const res = await register(email, password);
     setBusy(false);
     if (!res.ok) return setError(res.error || "Could not create account.");
-    // Email captured = Meta Lead.
-    trackLead(signupReason || "signup_modal");
+    // Account is created but not yet verified — the launch optimization event
+    // (CompleteRegistration) fires on successful verification below.
     setDemoCode(res.code || null);
     setMode("verify");
   };
@@ -65,7 +65,8 @@ export default function SignupModal() {
     e.preventDefault();
     const res = verifyEmail(code);
     if (!res.ok) return setError(res.error || "Verification failed.");
-    track("CompleteRegistration");
+    // ② Launch optimization event — server-side CAPI + pixel, deduped.
+    trackCompleteRegistration();
     finish();
   };
 

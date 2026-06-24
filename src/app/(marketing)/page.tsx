@@ -15,9 +15,9 @@ import LandingHero from "@/components/marketing/LandingHero";
 import PricingTable from "@/components/marketing/PricingTable";
 
 export const metadata: Metadata = {
-  title: "Hedge-fund-grade stock research for the price of a coffee",
+  title: "Hedge-fund-grade stock research — your first verdict free",
   description:
-    "Type a ticker, get an instant fair-value check + a full AI investment memo + a 5-year valuation model. Free to start, $9/mo for unlimited. Research & education tool — not investment advice.",
+    "Type any ticker, get an instant AI fair-value verdict free — no card. Then a full AI investment memo + a 5-year valuation model. Go annual from $99 the first year. Research & education tool — not investment advice.",
 };
 
 const STEPS = [
@@ -81,8 +81,8 @@ const FAQ = [
     a: "No. It's structured, institutional-style research wired to live fundamentals and a real valuation model — not a blank chat box. Every memo follows the same sections a hedge-fund analyst writes.",
   },
   {
-    q: "$9 — what's the catch?",
-    a: "No catch. The free plan gives you a full report and fair-value checks every month so you can judge the quality yourself before you ever pay.",
+    q: "$99 a year — what's the catch?",
+    a: "No catch. Your first fair-value verdict is free with no account, and the free plan gives you a full report so you can judge the quality yourself before you ever pay. Don't love it? A 30-day money-back guarantee has you covered.",
   },
   {
     q: "Will it tell me what to buy?",
@@ -119,7 +119,7 @@ export default function LandingPage() {
               <Clock size={16} /> A full institutional-style memo in minutes
             </li>
             <li>
-              <DollarSign size={16} /> $9/month — the price of a coffee
+              <DollarSign size={16} /> $99 for the first year — a fraction of the incumbents
             </li>
             <li>A fair-value estimate you can actually defend</li>
           </ul>

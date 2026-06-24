@@ -2,32 +2,25 @@
 
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useUserStore } from "@/lib/store";
-import { trackSubscribe } from "@/lib/analytics";
-import { priceFor, type Tier } from "@/lib/tiers";
+import { readPendingPurchase, applyPurchase } from "@/lib/checkout";
 
-// When the Stripe Payment Link redirects back with ?upgraded=1, optimistically
-// flip the account to the purchased tier and fire the Meta "Subscribe" event.
-// The tier is read from the pending-tier crumb set before redirect. (Validation
-// MVP: a Stripe webhook would reconcile real billing in production.)
+// When a Stripe Payment Link redirects back with ?upgraded=1, replay the
+// pending-purchase crumb set before redirect: flip the account and fire the
+// matching Meta Purchase event (subscription / expansion / tripwire), deduped
+// against the browser pixel. (Validation MVP: a Stripe webhook would reconcile
+// real billing in production.)
 function Handler() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const upgrade = useUserStore((s) => s.upgrade);
 
   useEffect(() => {
     if (params.get("upgraded") !== "1") return;
-    let tier: Tier = "premium";
-    try {
-      const crumb = localStorage.getItem("apex-alpha-pending-tier");
-      if (crumb === "basic" || crumb === "premium") tier = crumb;
-      localStorage.removeItem("apex-alpha-pending-tier");
-    } catch {}
-    upgrade(tier);
-    trackSubscribe(priceFor(tier));
+    const pending = readPendingPurchase();
+    // Default to the core annual plan if the crumb was lost.
+    applyPurchase(pending ?? { kind: "subscription", tier: "basic" });
     router.replace(pathname); // strip the query param
-  }, [params, pathname, router, upgrade]);
+  }, [params, pathname, router]);
 
   return null;
 }

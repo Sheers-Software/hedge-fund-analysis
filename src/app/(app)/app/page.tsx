@@ -70,8 +70,9 @@ function Dashboard() {
             Apex<span className="title-accent">Alpha</span>
           </h1>
           <p className="welcome-subtitle">
-            Type a ticker for an instant fair-value check, then read the full
-            hedge-fund-grade AI memo. Research &amp; education — you make the call.
+            Type any ticker → an AI fair-value verdict in seconds. Your first one
+            is free — no account. Then read the full hedge-fund-grade AI memo.
+            Research &amp; education — you make the call.
           </p>
 
           {mounted && isSignedUp && !isPro && (

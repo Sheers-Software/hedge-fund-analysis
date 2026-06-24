@@ -20,8 +20,8 @@ export default function IntelPage({ params }: { params: Promise<{ ticker: string
       <ProGate
         feature="intelFull"
         title="The AI Intelligence terminal is a Premium feature"
-        sub="Multi-model price outlook, AI technical & fundamental reads, support/resistance, insider transactors, and quarterly financials — one screen. Included with Premium, $19/mo."
-        reason="The AI Intelligence terminal is included with Premium."
+        sub="Multi-model price outlook, AI technical & fundamental reads, support/resistance, insider transactors, and quarterly financials — one screen. Included with the Premium annual plan."
+        reason="The AI Intelligence terminal is included with the Premium annual plan."
       >
         <IntelDashboard ticker={ticker} />
       </ProGate>

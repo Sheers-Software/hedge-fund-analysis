@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { ReportSectionData } from "@/components/ui/SectionCard";
-import { TIERS, QUOTA_UNLOCK_TIER, meetsTier, type Tier, type TierLimits } from "@/lib/tiers";
+import { TIERS, QUOTA_UNLOCK_TIER, meetsTier, type Tier, type TierLimits, type Cadence } from "@/lib/tiers";
 import { hashPassword, verifyPassword, validateEmail, validatePassword, genVerificationCode } from "@/lib/auth";
 
 interface SettingsState {
@@ -128,6 +128,13 @@ export interface UsageState {
   checks: number;
 }
 
+// One year, in ms — the annual term length used for renewal scheduling.
+const ANNUAL_TERM_MS = 365 * 24 * 60 * 60 * 1000;
+// "Renewing soon" window before renewsAt (drives nurture / win-back ⑥).
+const RENEWAL_SOON_MS = 30 * 24 * 60 * 60 * 1000;
+
+export type RenewalStatus = "active" | "renewing-soon" | "lapsed";
+
 export interface Account {
   email: string;
   passwordHash: string;
@@ -135,7 +142,14 @@ export interface Account {
   verified: boolean;
   tier: Tier;
   signedUpAt: number;
+  /** @deprecated retained for back-compat; renewal logic now uses termStartedAt/renewsAt. */
   proSince: number | null;
+  // ── Annual ladder / renewal model ──
+  cadence: Cadence | null; // "annual" once subscribed; null while free
+  termStartedAt: number | null; // when the current paid term began
+  renewsAt: number | null; // when the current term renews (term + 1yr)
+  isIntroTerm: boolean; // true on the first-year $99 term (drives renewal nurture + CAPI value)
+  deepDives: string[]; // tickers unlocked via the $7 tripwire
   usage: UsageState;
 }
 
@@ -160,6 +174,11 @@ interface UserState {
   tier: Tier;
   signedUpAt: number | null;
   proSince: number | null;
+  cadence: Cadence | null;
+  termStartedAt: number | null;
+  renewsAt: number | null;
+  isIntroTerm: boolean;
+  deepDives: string[];
   usage: UsageState;
 
   // Account "DB" + session.
@@ -174,6 +193,8 @@ interface UserState {
   limits: () => TierLimits;
   remaining: (kind: "reports" | "checks") => number; // Infinity when unlimited
   canUse: (kind: "reports" | "checks") => boolean;
+  hasDeepDive: (ticker: string) => boolean; // owns a $7 tripwire for this ticker
+  renewalStatus: () => RenewalStatus; // drives renewal nurture / win-back ⑥
 
   // auth lifecycle
   register: (email: string, password: string) => Promise<AuthResult>;
@@ -184,7 +205,12 @@ interface UserState {
 
   // tier / billing / usage
   setTier: (tier: Tier) => void;
+  /** Subscribe to (or expand to) an annual plan; flips tier + sets the renewal term. */
+  subscribeAnnual: (tier?: Exclude<Tier, "free">, opts?: { intro?: boolean }) => void;
+  /** @deprecated back-compat alias — routes to subscribeAnnual. */
   upgrade: (tier?: Tier) => void;
+  /** Buy a $7 single-ticker deep-dive (card-on-file tripwire). */
+  buyDeepDive: (ticker: string) => void;
   recordReport: () => void;
   recordCheck: () => void;
   reset: () => void;
@@ -202,6 +228,11 @@ const LOGGED_OUT = {
   tier: "free" as Tier,
   signedUpAt: null,
   proSince: null,
+  cadence: null,
+  termStartedAt: null,
+  renewsAt: null,
+  isIntroTerm: false,
+  deepDives: [] as string[],
   usage: freshUsage(),
 };
 
@@ -212,8 +243,21 @@ function activeFromAccount(acc: Account) {
     tier: acc.tier,
     signedUpAt: acc.signedUpAt,
     proSince: acc.proSince,
+    cadence: acc.cadence,
+    termStartedAt: acc.termStartedAt,
+    renewsAt: acc.renewsAt,
+    isIntroTerm: acc.isIntroTerm,
+    deepDives: acc.deepDives ?? [],
     usage: normalizedUsage(acc.usage),
   };
+}
+
+function computeRenewalStatus(tier: Tier, renewsAt: number | null): RenewalStatus {
+  if (tier === "free" || !renewsAt) return "active";
+  const now = Date.now();
+  if (now >= renewsAt) return "lapsed";
+  if (renewsAt - now <= RENEWAL_SOON_MS) return "renewing-soon";
+  return "active";
 }
 
 // Write the active session's usage back into its account record.
@@ -252,6 +296,9 @@ export const useUserStore = create<UserState>()(
         return Math.max(0, cap - (kind === "reports" ? u.reports : u.checks));
       },
       canUse: (kind) => get().remaining(kind) > 0,
+      hasDeepDive: (ticker) =>
+        (get().deepDives ?? []).includes(ticker.trim().toUpperCase()),
+      renewalStatus: () => computeRenewalStatus(get().tier, get().renewsAt),
 
       register: async (emailRaw, password) => {
         const email = emailRaw.trim().toLowerCase();
@@ -275,6 +322,11 @@ export const useUserStore = create<UserState>()(
               tier: "free",
               signedUpAt: Date.now(),
               proSince: null,
+              cadence: null,
+              termStartedAt: null,
+              renewsAt: null,
+              isIntroTerm: false,
+              deepDives: [],
               usage: freshUsage(),
             };
         const code = genVerificationCode();
@@ -336,12 +388,44 @@ export const useUserStore = create<UserState>()(
         set((s) => ({ accounts: { ...s.accounts, [sessionEmail]: acc }, tier }));
       },
 
-      upgrade: (tier = "premium") => {
+      subscribeAnnual: (tier = "basic", opts) => {
+        // Optimistic flip on Stripe return (validation MVP — no backend billing).
+        // First time a free user subscribes is the intro term ($99); a Basic→Premium
+        // expansion keeps the existing term/intro state and only bumps the tier.
         const { sessionEmail, accounts } = get();
-        const proSince = Date.now();
-        if (!sessionEmail || !accounts[sessionEmail]) return set({ tier, proSince });
-        const acc: Account = { ...accounts[sessionEmail], tier, proSince };
-        set((s) => ({ accounts: { ...s.accounts, [sessionEmail]: acc }, tier, proSince }));
+        const prev = sessionEmail ? accounts[sessionEmail] : undefined;
+        const isExpansion = prev?.cadence === "annual" && prev.tier !== "free";
+        const now = Date.now();
+        const termStartedAt = isExpansion ? prev!.termStartedAt ?? now : now;
+        const renewsAt = isExpansion ? prev!.renewsAt ?? now + ANNUAL_TERM_MS : now + ANNUAL_TERM_MS;
+        const isIntroTerm = isExpansion ? prev!.isIntroTerm : opts?.intro ?? true;
+        const fields = {
+          tier,
+          proSince: prev?.proSince ?? now,
+          cadence: "annual" as Cadence,
+          termStartedAt,
+          renewsAt,
+          isIntroTerm,
+        };
+        if (!sessionEmail || !prev) return set(fields);
+        const acc: Account = { ...prev, ...fields };
+        set((s) => ({ accounts: { ...s.accounts, [sessionEmail]: acc }, ...fields }));
+      },
+
+      upgrade: (tier = "premium") => {
+        const target = (tier === "free" ? "basic" : tier) as Exclude<Tier, "free">;
+        get().subscribeAnnual(target);
+      },
+
+      buyDeepDive: (tickerRaw) => {
+        const ticker = tickerRaw.trim().toUpperCase();
+        if (!ticker) return;
+        const { sessionEmail, accounts, deepDives } = get();
+        const nextDives = Array.from(new Set([...(deepDives ?? []), ticker]));
+        if (!sessionEmail || !accounts[sessionEmail])
+          return set({ deepDives: nextDives });
+        const acc: Account = { ...accounts[sessionEmail], deepDives: nextDives };
+        set((s) => ({ accounts: { ...s.accounts, [sessionEmail]: acc }, deepDives: nextDives }));
       },
 
       recordReport: () =>

@@ -3,7 +3,6 @@
 import { useEffect, useState, use } from "react";
 import { useAppStore, useSettingsStore, useReportStore, useUserStore, useHistoryStore } from "@/lib/store";
 import { useGate } from "@/lib/useGate";
-import { track } from "@/lib/analytics";
 import { WORKFLOW_SECTIONS } from "@/lib/prompts";
 import CompanyHeader from "@/components/ui/CompanyHeader";
 import FinancialMetrics from "@/components/ui/FinancialMetrics";
@@ -20,7 +19,7 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
 
   const { geminiKey, finnhubKey } = useSettingsStore();
   const { setCurrentTicker, setSettingsOpen, researchGuide, setResearchGuide } = useAppStore();
-  const { guardQuota, guardPro } = useGate();
+  const { guardQuota, guardPro, hasDeepDive } = useGate();
   const recordReport = useUserStore((s) => s.recordReport);
   const addHistory = useHistoryStore((s) => s.add);
 
@@ -169,7 +168,6 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
                 setIsGenerating(false);
                 persistReport();
                 recordReport(); // count against the monthly quota
-                track("StartTrial"); // first real "aha" — a completed memo
               } else if (eventType === "error") {
                 console.error("SSE Error:", data.message);
                 setGenError(data.message || "The AI engine returned an error.");
@@ -333,13 +331,13 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
               <>
                 <button
                   className="export-btn"
-                  onClick={() => guardPro("exportEnabled", "PDF & Markdown export is a Basic feature — upgrade to save and share your reports.") && handlePrintPdf()}
+                  onClick={() => guardPro("exportEnabled", "PDF & Markdown export is a Basic feature — go annual to save and share your reports.", ticker) && handlePrintPdf()}
                 >
                   <Printer size={14} /> Export PDF
                 </button>
                 <button
                   className="export-btn"
-                  onClick={() => guardPro("exportEnabled", "PDF & Markdown export is a Basic feature — upgrade to save and share your reports.") && handleExport()}
+                  onClick={() => guardPro("exportEnabled", "PDF & Markdown export is a Basic feature — go annual to save and share your reports.", ticker) && handleExport()}
                 >
                   <Download size={14} /> Export MD
                 </button>
@@ -347,7 +345,9 @@ export default function ReportPage({ params }: { params: Promise<{ ticker: strin
             )}
             <button
               className="btn-save !px-4 !py-1.5 ml-2"
-              onClick={() => guardQuota("reports", generateReport)}
+              onClick={() =>
+                hasDeepDive(ticker) ? generateReport() : guardQuota("reports", generateReport)
+              }
               disabled={isGenerating}
             >
               {isGenerating ? "Generating..." : "Generate"}

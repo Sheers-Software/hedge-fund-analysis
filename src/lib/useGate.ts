@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppStore, useUserStore } from "@/lib/store";
+import { startTripwireCheckout } from "@/lib/checkout";
 import {
   TIERS,
   QUOTA_UNLOCK_TIER,
@@ -9,6 +10,29 @@ import {
   type Tier,
   type GatedFeature,
 } from "@/lib/tiers";
+
+// One free ungated verdict for cold traffic lives client-side (the visitor has
+// no account yet). This counter is what flips the gate from "show the wow" to
+// "ask them to sign up" on the *second* action.
+const ANON_VERDICT_KEY = "apex-alpha-anon-verdicts";
+
+function anonVerdictsUsed(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    return Number(localStorage.getItem(ANON_VERDICT_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function recordAnonVerdict() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(ANON_VERDICT_KEY, String(anonVerdictsUsed() + 1));
+  } catch {
+    /* ignore */
+  }
+}
 
 // Central gating logic for the free→paid funnel. Every gated action in the
 // app routes through here so the rules (and the correct *upgrade target tier*)
@@ -32,15 +56,25 @@ export function useGate() {
   };
 
   /**
-   * Gate a quota'd action (reports / fair-value checks).
-   * not-signed-up → auth modal; over-quota → upgrade to the cheapest paid tier.
+   * Gate a quota'd action (reports / fair-value checks). Value before gate:
+   *
+   *  - checks, anonymous, 0 used  → run it, NO gate (the free ungated verdict).
+   *  - checks, anonymous, ≥1 used → signup ("save your results / run another").
+   *  - reports, anonymous         → signup (the heavier action is the ② gate).
+   *  - signed-up, over quota       → upgrade (paywall leads with the $7 tripwire).
    */
   const guardQuota = (kind: "reports" | "checks", action: () => void): void => {
     if (!user.isSignedUp()) {
+      // The one free verdict cold traffic gets before any modal.
+      if (kind === "checks" && anonVerdictsUsed() < 1) {
+        recordAnonVerdict();
+        action();
+        return;
+      }
       openSignup(
         kind === "reports"
           ? "Create a free account to generate your first AI research memo."
-          : "Create a free account to run a fair-value check.",
+          : "Save your results — create a free account to run another check.",
         action
       );
       return;
@@ -52,8 +86,8 @@ export function useGate() {
           : TIERS.free.limits.checksPerMonth;
       openUpgrade(
         kind === "reports"
-          ? `You've used your ${cap} free report this month. Upgrade to ${tierName(QUOTA_UNLOCK_TIER)} for unlimited research memos.`
-          : `You've used your ${cap} free fair-value checks this month. Upgrade to ${tierName(QUOTA_UNLOCK_TIER)} for unlimited checks.`,
+          ? `You've used your ${cap} free report this month. Go annual with ${tierName(QUOTA_UNLOCK_TIER)} for unlimited research memos — or unlock just this ticker for $${7}.`
+          : `You've used your ${cap} free fair-value checks this month. Go annual with ${tierName(QUOTA_UNLOCK_TIER)} for unlimited checks.`,
         QUOTA_UNLOCK_TIER
       );
       return;
@@ -62,12 +96,26 @@ export function useGate() {
   };
 
   /**
+   * Route to the $7 single-ticker deep-dive checkout (card-on-file tripwire).
+   * No-op if the ticker is already unlocked.
+   */
+  const guardTripwire = (ticker: string): void => {
+    if (user.hasDeepDive(ticker)) return;
+    startTripwireCheckout(ticker);
+  };
+
+  /**
    * Gate a tier-locked feature. Returns true if unlocked; otherwise opens the
    * signup modal (anonymous) or the upgrade modal targeting the *minimum tier*
    * that unlocks the feature, and returns false.
    */
-  const guardPro = (feature: GatedFeature, reason: string): boolean => {
+  // The $7 tripwire unlocks the memo + valuation + charts + export for one
+  // ticker — but NOT the Premium-only AI Intelligence terminal.
+  const tripwireCovers = (feature: GatedFeature) => feature !== "intelFull";
+
+  const guardPro = (feature: GatedFeature, reason: string, ticker?: string): boolean => {
     if (user.limits()[feature]) return true;
+    if (ticker && tripwireCovers(feature) && user.hasDeepDive(ticker)) return true;
     const target = requiredTierFor(feature);
     if (!user.isSignedUp()) {
       openSignup(reason);
@@ -89,8 +137,11 @@ export function useGate() {
     remainingChecks: user.remaining("checks"),
     requiredTierFor,
     isUnlocked: (feature: GatedFeature) => meetsTier(user.tier, requiredTierFor(feature)),
+    hasDeepDive: (ticker: string) => user.hasDeepDive(ticker),
+    renewalStatus: user.renewalStatus(),
     ensureSignedUp,
     guardQuota,
+    guardTripwire,
     guardPro,
   };
 }

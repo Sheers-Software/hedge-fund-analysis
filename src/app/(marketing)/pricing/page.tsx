@@ -2,24 +2,24 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import PricingTable from "@/components/marketing/PricingTable";
-import { BASIC_PRICE } from "@/lib/tiers";
+import { ANNUAL_INTRO_PRICE } from "@/lib/tiers";
 
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Free forever to start: 1 full AI research memo + 3 fair-value checks every month. Basic ($9/mo) unlocks unlimited research, the full valuation model, charts, and PDF export. Premium ($19/mo) adds the AI Intelligence terminal.",
+    "Your first fair-value verdict is free — no card. Then go annual: $99 for the first year (unlimited research, the full valuation model, charts, and PDF export), or add the AI Intelligence terminal with Premium. 30-day money-back guarantee.",
 };
 
 export default function PricingPage() {
   return (
     <section className="mkt-section mkt-pricing-page">
-      <div className="mkt-eyebrow">Simple pricing</div>
+      <div className="mkt-eyebrow">Simple annual pricing</div>
       <h1 className="mkt-section-title" style={{ fontSize: "2.2rem" }}>
-        Hedge-fund-grade research from ${BASIC_PRICE}/month
+        Hedge-fund-grade research from ${ANNUAL_INTRO_PRICE} for the first year
       </h1>
       <p className="mkt-section-sub">
-        Try the full quality on the free plan first. Upgrade only when ApexAlpha
-        is already saving you hours. Cancel anytime.
+        Run your first verdict free — no card. Go annual only when ApexAlpha is
+        already saving you hours. 30-day money-back guarantee, cancel anytime.
       </p>
 
       <PricingTable />
