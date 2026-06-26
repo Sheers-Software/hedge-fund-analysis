@@ -136,6 +136,10 @@ export async function GET(
     const t = ticker.toUpperCase().trim();
     const finnhubKey = request.headers.get("x-finnhub-key") || process.env.FINNHUB_API_KEY || "";
     const geminiKey = request.headers.get("x-gemini-key") || process.env.GEMINI_API_KEY || "";
+    // AI narration adds ~9s (Gemini round-trip). It is opt-in via `?ai=1` so the
+    // client can paint the deterministic terminal instantly, then enrich in the
+    // background instead of blocking the whole dashboard on the model call.
+    const wantAI = new URL(request.url).searchParams.get("ai") === "1";
 
     const [company, reported, insider] = await Promise.all([
       fetchCompanyData(t, finnhubKey),
@@ -202,7 +206,7 @@ export async function GET(
         : "Ownership detail is limited for this name.";
     let outlook = { directionPct: projection.consensusPct, confidence: 0.5, summary: "Quant consensus only — add a Gemini key for an AI read." };
 
-    if (geminiKey) {
+    if (wantAI && geminiKey) {
       try {
         const ai = await aiNarrate(geminiKey, {
           ticker: t,

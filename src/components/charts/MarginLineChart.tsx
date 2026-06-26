@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef, useState } from "react";
+
 export interface MarginPoint {
   label: string;
   year: number;
@@ -18,6 +20,8 @@ export default function MarginLineChart({
   data: MarginPoint[];
   height?: number;
 }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [hover, setHover] = useState<{ idx: number; x: number; y: number } | null>(null);
   const slot = 34;
   const padL = 52;
   const padR = 14;
@@ -65,8 +69,31 @@ export default function MarginLineChart({
   const gross = buildPath("gross");
   const net = buildPath("net");
 
+  const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const r = svg.getBoundingClientRect();
+    const sx = ((e.clientX - r.left) / r.width) * W;
+    const sy = ((e.clientY - r.top) / r.height) * height;
+    const idx = Math.floor((sx - padL) / slot);
+    if (idx < 0 || idx >= data.length) {
+      setHover(null);
+      return;
+    }
+    setHover({ idx, x: sx, y: sy });
+  };
+  const onLeave = () => setHover(null);
+
   return (
-    <svg className="qbar-svg" viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="xMinYMid meet" role="img">
+    <svg
+      ref={svgRef}
+      className="qbar-svg"
+      viewBox={`0 0 ${W} ${height}`}
+      preserveAspectRatio="xMinYMid meet"
+      role="img"
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+    >
       {ticks.map((t, i) => (
         <g key={i}>
           <line x1={padL} y1={yOf(t)} x2={W - padR} y2={yOf(t)} className="qbar-grid" />
@@ -113,6 +140,53 @@ export default function MarginLineChart({
           {d.label}
         </text>
       ))}
+
+      {/* Cursor hover: crosshair, emphasised points and a gross/net tooltip. */}
+      {hover &&
+        (() => {
+          const d = data[hover.idx];
+          const cx = xOf(hover.idx);
+          const pct = (v: number | null) => (v != null ? `${(v * 100).toFixed(1)}%` : "—");
+          const l1 = `${d.year} ${d.label}${d.projected ? " · proj" : ""}`;
+          const l2 = `Gross ${pct(d.gross)}`;
+          const l3 = `Net ${pct(d.net)}`;
+          const tw = Math.max(l1.length, l2.length, l3.length) * 6.6 + 18;
+          const th = 50;
+          let tx = hover.x + 14;
+          if (tx + tw > W - 2) tx = hover.x - tw - 14;
+          if (tx < 2) tx = 2;
+          let ty = hover.y - th - 12;
+          if (ty < padT) ty = hover.y + 16;
+          return (
+            <g pointerEvents="none">
+              <line
+                x1={cx}
+                y1={padT}
+                x2={cx}
+                y2={height - padB}
+                stroke="rgba(255,255,255,0.3)"
+                strokeWidth={1}
+                strokeDasharray="3 3"
+              />
+              {d.gross != null && <circle cx={cx} cy={yOf(d.gross)} r={4} fill={GROSS} stroke="#fff" strokeWidth={1} />}
+              {d.net != null && <circle cx={cx} cy={yOf(d.net)} r={4} fill={NET} stroke="#fff" strokeWidth={1} />}
+              <g transform={`translate(${tx},${ty})`}>
+                <rect
+                  width={tw}
+                  height={th}
+                  rx={5}
+                  fill="#0b1220"
+                  fillOpacity={0.97}
+                  stroke="rgba(255,255,255,0.18)"
+                  strokeWidth={1}
+                />
+                <text x={9} y={15} fontSize={10} fontFamily="Inter, sans-serif" fill="#9fb0c0">{l1}</text>
+                <text x={9} y={30} fontSize={12} fontWeight={700} fontFamily="'JetBrains Mono', monospace" fill={GROSS}>{l2}</text>
+                <text x={9} y={44} fontSize={12} fontWeight={700} fontFamily="'JetBrains Mono', monospace" fill={NET}>{l3}</text>
+              </g>
+            </g>
+          );
+        })()}
     </svg>
   );
 }

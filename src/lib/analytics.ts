@@ -17,6 +17,7 @@
 // fallback ready in case Purchase/Lead are filtered on a finance domain (recon §3).
 
 import { MODELED_LTV } from "@/lib/tiers";
+import { useUserStore } from "@/lib/store";
 
 export const FB_PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID || "";
 
@@ -48,17 +49,36 @@ export function newEventId(): string {
   return `evt_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
 }
 
-// Best-effort server-side CAPI relay. The full spec (access token, hashed
-// user-data, server event time) lands in Step 5; this stubs the surface so the
-// product already emits the right names + payloads with a dedup key.
+// Read a browser cookie by name (the Meta pixel sets `_fbp`/`_fbc`).
+function readCookie(name: string): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const safe = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const m = document.cookie.match(new RegExp("(?:^|; )" + safe + "=([^;]*)"));
+  return m ? decodeURIComponent(m[1]) : undefined;
+}
+
+// Server-side CAPI relay. Mirrors a conversion to /api/meta/capi with the SAME
+// `event_id` the pixel used, so Meta deduplicates the two copies and attributes
+// the event once. We forward the first-party match signals available in the
+// browser — the logged-in email (hashed server-side), and the pixel's own
+// `_fbp`/`_fbc` cookies (sent raw) — plus the client event time. The server
+// adds IP + user-agent from the request. All fields are optional; match quality
+// degrades gracefully when they're absent.
 function sendCapi(event: string, params: Record<string, unknown>, eventId: string) {
   if (typeof window === "undefined") return;
   try {
+    const email = useUserStore.getState().email || undefined;
     const body = JSON.stringify({
       event_name: event,
       event_id: eventId,
+      event_time: Math.floor(Date.now() / 1000),
       event_source_url: window.location.href,
       custom_data: params,
+      user_data: {
+        email,
+        fbp: readCookie("_fbp"),
+        fbc: readCookie("_fbc"),
+      },
     });
     // keepalive so the beacon survives a navigation (e.g. Stripe redirect).
     fetch("/api/meta/capi", {
@@ -127,6 +147,8 @@ export const trackPurchaseTripwire = (ticker: string) =>
 export const trackPurchaseSubscription = (params: {
   value: number;
   plan: "basic" | "premium";
+  /** Step 3 WTP cell ($279 "a" vs $299 "b") so conversions split by price. */
+  cell?: "a" | "b";
 }) =>
   fire(
     "track",
@@ -137,6 +159,7 @@ export const trackPurchaseSubscription = (params: {
       content_type: "subscription",
       plan: params.plan,
       cadence: "annual",
+      wtp_cell: params.cell ?? "a",
       // Modeled blended LTV — never a monthly extrapolation (value×12).
       predicted_ltv: MODELED_LTV,
     },
@@ -151,3 +174,14 @@ export const trackPurchaseExpansion = (value: number) =>
     { value, currency: "USD", content_type: "expansion", plan: "premium" },
     { dedup: true }
   );
+
+/**
+ * ⑥ Retention surface shown — the renewal nudge / win-back banner. Fires a
+ * custom event (deduped to CAPI) so Meta can build the renewal-nurture and
+ * win-back retargeting audiences (subscribers near renewal, lapsed customers).
+ * Not a Purchase — it carries no value; it's a retargeting signal.
+ */
+export const trackRenewalPrompt = (
+  status: "renewing-soon" | "lapsed",
+  plan: "basic" | "premium"
+) => fire("trackCustom", "RenewalPrompt", { status, plan }, { dedup: true });

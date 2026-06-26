@@ -1028,6 +1028,14 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--t1)
 .intel-upsell-head { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: .92rem; font-weight: 700; color: var(--t1); }
 .intel-upsell-sub { font-size: .82rem; color: var(--t2); line-height: 1.5; margin: 8px 0 14px; }
 .intel-upsell .mkt-btn { display: inline-flex; align-items: center; gap: 7px; }
+/* ⑥ Retention / win-back banner (Step 4) */
+.renewal-banner { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 10px 18px; background: linear-gradient(180deg, rgba(59,130,246,.10), rgba(59,130,246,.03)); border-bottom: 1px solid var(--aborder); font-size: .82rem; color: var(--t1); }
+.renewal-banner-lapsed { background: linear-gradient(180deg, rgba(245,158,11,.12), rgba(245,158,11,.03)); border-bottom-color: rgba(245,158,11,.4); }
+.renewal-banner-msg { display: flex; align-items: center; gap: 9px; line-height: 1.4; }
+.renewal-banner-actions { display: flex; align-items: center; gap: 8px; }
+.renewal-banner-cta { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px !important; font-size: .78rem !important; }
+.renewal-banner-dismiss { background: none; border: none; color: var(--t3); cursor: pointer; display: inline-flex; padding: 4px; border-radius: 6px; }
+.renewal-banner-dismiss:hover { color: var(--t1); background: rgba(255,255,255,.06); }
 /* intel + auth + 3-tier upgrade styles — rev 2 */
 
 

@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { Check, Crown } from "lucide-react";
-import { TIERS, TIER_ORDER, type Tier } from "@/lib/tiers";
+import { TIERS, TIER_ORDER, renewalPriceForCell, type Tier } from "@/lib/tiers";
 import { useAppStore } from "@/lib/store";
 import { startSubscriptionCheckout } from "@/lib/checkout";
+import { useWtpCell } from "@/lib/experiment";
 
 // Annual ladder pricing table (free → annual Basic/Premium) + trust row.
 const FEATURED: Tier = "premium";
@@ -12,6 +13,7 @@ const FEATURED: Tier = "premium";
 export default function PricingTable() {
   const router = useRouter();
   const openSignup = useAppStore((s) => s.openSignup);
+  const cell = useWtpCell();
 
   const startFree = () =>
     openSignup("Create your free account — your first verdict is on us, no card required.");
@@ -29,6 +31,7 @@ export default function PricingTable() {
       {TIER_ORDER.map((id) => {
         const t = TIERS[id];
         const featured = id === FEATURED;
+        const renewal = renewalPriceForCell(id, cell);
         return (
           <div key={id} className={`mkt-plan ${featured ? "mkt-plan-featured" : ""}`}>
             {featured && <div className="mkt-plan-badge">Flagship</div>}
@@ -44,14 +47,14 @@ export default function PricingTable() {
                 </>
               ) : (
                 <>
-                  <span className="mkt-plan-strike">${t.renewalPrice}</span>
+                  <span className="mkt-plan-strike">${renewal}</span>
                   <span className="mkt-plan-amount">${t.introPrice}</span>
                   <span className="mkt-plan-period">first year</span>
                 </>
               )}
             </div>
             {id !== "free" && (
-              <div className="mkt-plan-renew">Renews at ${t.renewalPrice}/yr · cancel anytime</div>
+              <div className="mkt-plan-renew">Renews at ${renewal}/yr · cancel anytime</div>
             )}
             <p className="mkt-plan-tagline">{t.tagline}</p>
             {id === "free" ? (

@@ -10,11 +10,13 @@
 "use client";
 
 import {
-  stripeLinkFor,
+  stripeLinkForCell,
   STRIPE_TRIPWIRE_LINK,
   introPriceFor,
   PREMIUM_EXPANSION_DELTA,
+  type WtpCell,
 } from "@/lib/tiers";
+import { resolveWtpCell } from "@/lib/experiment";
 import { useUserStore } from "@/lib/store";
 import {
   trackPurchaseTripwire,
@@ -24,8 +26,8 @@ import {
 
 /** What was bought — stashed before a Stripe redirect, replayed on return. */
 export type PendingPurchase =
-  | { kind: "subscription"; tier: "basic" | "premium"; bump?: boolean }
-  | { kind: "expansion" }
+  | { kind: "subscription"; tier: "basic" | "premium"; bump?: boolean; cell?: WtpCell }
+  | { kind: "expansion"; cell?: WtpCell }
   | { kind: "tripwire"; ticker: string };
 
 const CRUMB_KEY = "apex-alpha-pending-purchase";
@@ -65,11 +67,11 @@ export function applyPurchase(p: PendingPurchase) {
   // subscription — order-bump decomposes into base subscription + expansion.
   if (p.bump) {
     store.subscribeAnnual("premium");
-    trackPurchaseSubscription({ value: introPriceFor("basic"), plan: "basic" });
+    trackPurchaseSubscription({ value: introPriceFor("basic"), plan: "basic", cell: p.cell });
     trackPurchaseExpansion(PREMIUM_EXPANSION_DELTA);
   } else {
     store.subscribeAnnual(p.tier);
-    trackPurchaseSubscription({ value: introPriceFor(p.tier), plan: p.tier });
+    trackPurchaseSubscription({ value: introPriceFor(p.tier), plan: p.tier, cell: p.cell });
   }
 }
 
@@ -94,25 +96,27 @@ export function startSubscriptionCheckout(
 ): boolean {
   const bump = !!opts?.bump && tier === "basic";
   const effectiveTier = bump ? "premium" : tier;
-  const link = stripeLinkFor(effectiveTier);
+  const cell = resolveWtpCell();
+  const link = stripeLinkForCell(effectiveTier, cell);
   if (link) {
-    setCrumb({ kind: "subscription", tier, bump });
+    setCrumb({ kind: "subscription", tier, bump, cell });
     redirect(link, opts?.returnTo);
     return true;
   }
-  applyPurchase({ kind: "subscription", tier, bump });
+  applyPurchase({ kind: "subscription", tier, bump, cell });
   return false;
 }
 
 /** Start the Premium expansion checkout (in-app /intel upsell for Basic users). */
 export function startExpansionCheckout(opts?: { returnTo?: string }): boolean {
-  const link = stripeLinkFor("premium");
+  const cell = resolveWtpCell();
+  const link = stripeLinkForCell("premium", cell);
   if (link) {
-    setCrumb({ kind: "expansion" });
+    setCrumb({ kind: "expansion", cell });
     redirect(link, opts?.returnTo);
     return true;
   }
-  applyPurchase({ kind: "expansion" });
+  applyPurchase({ kind: "expansion", cell });
   return false;
 }
 

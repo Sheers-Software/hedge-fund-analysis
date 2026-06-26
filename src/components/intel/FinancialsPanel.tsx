@@ -20,25 +20,34 @@ function GroupedBars({
   const slot = 100 / data.length;
   const bw = slot * 0.26;
 
+  // Bars live in a non-uniformly stretched SVG (preserveAspectRatio="none"),
+  // which is fine for rectangles but would distort text — so the quarter labels
+  // are rendered as a separate HTML row, evenly distributed under each group.
   return (
-    <svg className="intel-fin-bars" viewBox="0 0 100 165" preserveAspectRatio="none">
-      {data.map((q, i) => {
-        const cx = i * slot + slot / 2;
-        const a = Number(q[keyA.field]) || 0;
-        const b = Number(q[keyB.field]) || 0;
-        const ha = (Math.abs(a) / max) * H;
-        const hb = (Math.abs(b) / max) * H;
-        return (
-          <g key={i}>
-            <rect x={cx - bw - 1} y={H - ha} width={bw} height={ha} rx={0.8} fill={keyA.color} />
-            <rect x={cx + 1} y={H - hb} width={bw} height={hb} rx={0.8} fill={keyB.color} />
-            <text x={cx} y={H + 11} className="intel-fin-xlabel" textAnchor="middle">
-              Q{q.quarter} &apos;{String(q.year).slice(2)}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+    <>
+      <svg className="intel-fin-bars" viewBox="0 0 100 150" preserveAspectRatio="none">
+        {data.map((q, i) => {
+          const cx = i * slot + slot / 2;
+          const a = Number(q[keyA.field]) || 0;
+          const b = Number(q[keyB.field]) || 0;
+          const ha = (Math.abs(a) / max) * H;
+          const hb = (Math.abs(b) / max) * H;
+          return (
+            <g key={i}>
+              <rect x={cx - bw - 1} y={H - ha} width={bw} height={ha} rx={0.8} fill={keyA.color} />
+              <rect x={cx + 1} y={H - hb} width={bw} height={hb} rx={0.8} fill={keyB.color} />
+            </g>
+          );
+        })}
+      </svg>
+      <div className="intel-fin-xaxis">
+        {data.map((q, i) => (
+          <span key={i}>
+            Q{q.quarter} &apos;{String(q.year).slice(2)}
+          </span>
+        ))}
+      </div>
+    </>
   );
 }
 

@@ -142,21 +142,33 @@ The test's job is to locate which row we're in. **3:1 must hold on subscriptions
 
 ---
 
-## 6. Code prerequisites (owned by the realignment build — do not duplicate)
+## 6. Implementation status — BUILT ✅
 
-These come from [product-revision.md](./product-revision.md); the test only needs them *configured*:
+The A/B is wired end-to-end behind the existing gating (live Stripe, no deploy yet):
 
-| Prereq | Source | Test-specific config to add |
+| Piece | Status | Where |
 |---|---|---|
-| Value-before-gate (1 anonymous verdict) | revision §3 | — (must be live for the hook) |
-| $7 tripwire Stripe path | revision §2a / §4 | `NEXT_PUBLIC_STRIPE_LINK_TRIPWIRE` set to a **live** $7 price |
-| Annual $99 intro Stripe paths | revision §2 | `…_ANNUAL` (Cell A, $279 renewal) + a Cell-B variant ($299) |
-| Runtime price switch | revision §2b | flag/param to route a visitor to Cell A vs B ($279 vs $299 anchor) |
-| Event firing (§3 chain) | revision §6 | UTM + `event_id` per cell so spend↔event reconciles |
+| Value-before-gate (1 anonymous verdict) | ✅ | `useGate.ts` (realignment) |
+| $7 tripwire — **live** Stripe path | ✅ | `price_1TluRY…` · link `…fAc05` |
+| Cell A annual ($99→$279 / $199→$379) | ✅ | links `…fAc03` / `…fAc04`, promo `INTRO99` |
+| Cell B annual ($99→$299 / $199→$399) | ✅ | links `…fAc06` / `…fAc07`, promo `INTRO99B` |
+| Seamless $99 intro | ✅ | `?prefilled_promo_code=` baked into each annual link (auto-applied) |
+| Cell assignment (`?cell=a\|b` wins → sticky → 50/50) | ✅ | [experiment.ts](../../src/lib/experiment.ts) |
+| Cell-bound price ↔ link ↔ event | ✅ | `WTP_CELLS` in [tiers.ts](../../src/lib/tiers.ts); [checkout.ts](../../src/lib/checkout.ts) |
+| Purchase event carries `wtp_cell` | ✅ | [analytics.ts](../../src/lib/analytics.ts) `trackPurchaseSubscription` |
 
-**If the realignment build doesn't expose the runtime price switch,** the minimal fallback is two
-Stripe Payment Links + a `?cell=a|b` landing param — no new app code. Coordinate with the build agent
-so we don't both edit `tiers.ts`/`UpgradeModal`.
+**How a visitor is split:** `resolveWtpCell()` reads `?cell=a|b` (set per Meta ad set's landing URL),
+persists it, and falls back to a sticky 50/50 for untagged traffic. The chosen cell drives the renewal
+anchor shown (verified: $279/$379 vs $299/$399), the Stripe link used, and the `wtp_cell` tag on the
+`Purchase` event — so spend, display, charge, and analytics never disagree.
+
+**Env (in `.env.local`):** `NEXT_PUBLIC_STRIPE_LINK_ANNUAL[_PREMIUM]` (cell A),
+`…_ANNUAL[_PREMIUM]_B` (cell B), `…_TRIPWIRE`. A dev server **restart** is required to load newly-added
+`NEXT_PUBLIC_*` links (Next inlines them at boot); the cell→price *display* needs no restart.
+
+**Verification done:** `tsc --noEmit` clean; `/pricing?cell=a` → $279/$379, `/pricing?cell=b` →
+$299/$399, no console errors. (Live Stripe redirect not exercised in preview — landing is safe but a
+completed card submit is a real charge.)
 
 ---
 

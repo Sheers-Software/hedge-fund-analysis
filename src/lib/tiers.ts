@@ -203,6 +203,37 @@ export const STRIPE_TRIPWIRE_LINK = process.env.NEXT_PUBLIC_STRIPE_LINK_TRIPWIRE
 export const stripeLinkFor = (tier: Exclude<Tier, "free">): string =>
   STRIPE_PAYMENT_LINKS[tier];
 
+// ── Step 3 WTP A/B: renewal-anchor cells (intro stays $99/$199) ───────
+// Each cell binds a renewal anchor to its matching Stripe link so the price the
+// customer SEES always equals the price they're CHARGED. Assignment lives in
+// src/lib/experiment.ts; the chosen cell rides the Purchase event as `wtp_cell`.
+export type WtpCell = "a" | "b";
+
+export const WTP_CELLS: Record<
+  WtpCell,
+  { renewal: Record<Exclude<Tier, "free">, number>; links: Record<Exclude<Tier, "free">, string> }
+> = {
+  a: {
+    renewal: { basic: 279, premium: 379 },
+    links: { basic: STRIPE_PAYMENT_LINKS.basic, premium: STRIPE_PAYMENT_LINKS.premium },
+  },
+  b: {
+    renewal: { basic: 299, premium: 399 },
+    links: {
+      basic: process.env.NEXT_PUBLIC_STRIPE_LINK_ANNUAL_B || "",
+      premium: process.env.NEXT_PUBLIC_STRIPE_LINK_ANNUAL_PREMIUM_B || "",
+    },
+  },
+};
+
+/** Renewal price for a tier in a given WTP cell (0 for free). */
+export const renewalPriceForCell = (tier: Tier, cell: WtpCell): number =>
+  tier === "free" ? 0 : WTP_CELLS[cell].renewal[tier];
+
+/** Stripe checkout link for a paid tier in a given WTP cell. */
+export const stripeLinkForCell = (tier: Exclude<Tier, "free">, cell: WtpCell): string =>
+  WTP_CELLS[cell].links[tier] || STRIPE_PAYMENT_LINKS[tier];
+
 export function limitsFor(tier: Tier): TierLimits {
   return TIERS[tier].limits;
 }

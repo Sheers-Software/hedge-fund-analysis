@@ -8,9 +8,11 @@ import {
   TRIPWIRE,
   CATEGORY_ANCHORS,
   PREMIUM_EXPANSION_DELTA,
+  renewalPriceForCell,
   type Tier,
 } from "@/lib/tiers";
 import { startSubscriptionCheckout, startTripwireCheckout } from "@/lib/checkout";
+import { useWtpCell } from "@/lib/experiment";
 import { Check, Zap, Crown, ShieldCheck } from "lucide-react";
 
 // The paywall. Triggered when a user hits a tier-locked feature or quota.
@@ -23,6 +25,8 @@ export default function UpgradeModal() {
   const email = useUserStore((s) => s.email);
   const currentTier = useUserStore((s) => s.tier);
   const hasDeepDive = useUserStore((s) => s.hasDeepDive);
+
+  const cell = useWtpCell();
 
   // Order-bump: add the Premium AI Intelligence desk to the Basic annual plan.
   const [addPremium, setAddPremium] = useState(false);
@@ -83,6 +87,7 @@ export default function UpgradeModal() {
             const isTarget = id === target;
             const owned = currentTier === id;
             const bumpActive = id === "basic" && addPremium;
+            const renewal = renewalPriceForCell(id, cell);
             return (
               <div key={id} className={`upg-card ${isTarget ? "upg-card-target" : ""}`}>
                 {isTarget && <div className="upg-card-flag">Recommended</div>}
@@ -91,11 +96,11 @@ export default function UpgradeModal() {
                   {t.name}
                 </div>
                 <div className="upg-card-price">
-                  <span className="upg-strike">${t.renewalPrice}</span>
+                  <span className="upg-strike">${renewal}</span>
                   <span className="upg-amount">${t.introPrice}</span>
                   <span className="upg-period">/ first year</span>
                 </div>
-                <div className="upg-renew">Renews at ${t.renewalPrice}/yr · cancel anytime</div>
+                <div className="upg-renew">Renews at ${renewal}/yr · cancel anytime</div>
                 <p className="upg-tagline">{t.tagline}</p>
 
                 {/* Premium order-bump on the Basic plan */}
