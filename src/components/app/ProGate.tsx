@@ -15,16 +15,21 @@ export default function ProGate({
   title,
   sub,
   reason,
+  ticker,
   children,
 }: {
   feature: "valuationFull" | "chartsFull" | "intelFull" | "exportEnabled";
   title: string;
   sub: string;
   reason: string;
+  /** When set, a $7 deep-dive owner for this ticker sees the unlocked content. */
+  ticker?: string;
   children: React.ReactNode;
 }) {
-  const { limits, guardPro } = useGate();
+  const { limits, guardPro, hasDeepDive } = useGate();
   const targetTier = TIERS[requiredTierFor(feature)].name;
+  // The tripwire unlocks valuation/charts/export per ticker (not Intelligence).
+  const deepDiveUnlocks = feature !== "intelFull" && !!ticker && hasDeepDive(ticker);
 
   // Deterministic pre-hydration render (persisted tier isn't known on the
   // server): show a stable blurred preview, then resolve gating after mount.
@@ -40,7 +45,7 @@ export default function ProGate({
     );
   }
 
-  if (limits[feature]) return <>{children}</>;
+  if (limits[feature] || deepDiveUnlocks) return <>{children}</>;
 
   return (
     <div className="lock-wrap">
@@ -53,7 +58,7 @@ export default function ProGate({
         </div>
         <div className="lock-title">{title}</div>
         <div className="lock-sub">{sub}</div>
-        <button className="mkt-btn mkt-btn-primary" onClick={() => guardPro(feature, reason)}>
+        <button className="mkt-btn mkt-btn-primary" onClick={() => guardPro(feature, reason, ticker)}>
           Unlock with {targetTier} →
         </button>
       </div>

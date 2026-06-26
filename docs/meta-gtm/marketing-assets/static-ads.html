@@ -1,0 +1,117 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ApexAlpha — Meta static ad frames (Step 6)</title>
+<!--
+  Copy-exact, brand-accurate static ad frames for Meta. Open in a browser.
+  EXPORT: screenshot each .ad block (it carries the true ad aspect ratio).
+  For 1080px+ delivery, zoom the browser to 200% before capturing, or use
+  DevTools device toolbar. Each frame has a dashed SLOT — drop the named REAL
+  screenshot (docs/screenshots/webapp/...) into that area in your editor, OR
+  screenshot the frame and composite the screen behind the slot.
+  Compliance: real screens only, no returns/"get rich", not-advice line on every frame.
+-->
+<style>
+  :root{
+    --bg:#0d1117; --surface:#161b22; --line:rgba(59,130,246,.25);
+    --t1:#e8edf2; --t2:#9fb0c3; --t3:#5f7184;
+    --accent:#3b82f6; --green:#10b981; --amber:#f59e0b; --red:#f43f5e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#05070a;color:var(--t1);font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;
+    padding:32px;display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;justify-content:center}
+  .wrap{display:flex;flex-direction:column;gap:10px;align-items:center}
+  .label{font-size:13px;color:#8aa0b6;font-family:ui-monospace,monospace}
+  .ad{background:var(--bg);overflow:hidden;position:relative;display:flex;flex-direction:column;
+    padding:44px 40px;border:1px solid #1c2430}
+  .sq{width:540px;height:540px}            /* 1:1 feed */
+  .vt{width:432px;height:768px}            /* 9:16 reel/story */
+  .brand{font-size:24px;font-weight:800;letter-spacing:-.02em}
+  .brand span{color:var(--accent)}
+  .eyebrow{font-size:13px;color:var(--t3);letter-spacing:.14em;text-transform:uppercase;margin-top:6px}
+  .hook{font-size:34px;line-height:1.12;font-weight:800;letter-spacing:-.02em;margin-top:auto}
+  .vt .hook{font-size:38px}
+  .hook .hl{color:var(--accent)}
+  .hook .strike{color:var(--t3);text-decoration:line-through;text-decoration-thickness:3px}
+  .sub{font-size:17px;color:var(--t2);line-height:1.45;margin-top:14px}
+  .slot{flex:1;min-height:120px;margin:20px 0;border:2px dashed var(--line);border-radius:12px;
+    display:flex;align-items:center;justify-content:center;text-align:center;color:var(--t3);
+    font-family:ui-monospace,monospace;font-size:13px;padding:16px;background:rgba(59,130,246,.04)}
+  .cta{align-self:flex-start;margin-top:18px;background:var(--accent);color:#fff;font-weight:700;
+    font-size:17px;padding:13px 22px;border-radius:10px}
+  .legal{font-size:12px;color:var(--t3);margin-top:16px}
+  .anchor{font-size:13px;color:var(--t2);margin-top:10px}
+  .pill{display:inline-block;font-size:13px;font-weight:600;color:var(--green);
+    border:1px solid rgba(16,185,129,.4);border-radius:999px;padding:5px 12px;margin-top:14px}
+  .endwrap{align-items:center;text-align:center;justify-content:center}
+  .endwrap .brand{font-size:40px}
+  .endwrap .cta{align-self:center;margin-top:24px;font-size:19px;padding:15px 30px}
+</style>
+
+<!-- H1 — verdict / overvalued (1:1) -->
+<div class="wrap">
+  <div class="label">H1 · 1:1 · slot = Research_Hub/155013</div>
+  <div class="ad sq">
+    <div class="brand">Apex<span>Alpha</span></div>
+    <div class="eyebrow">Fair-value check</div>
+    <div class="hook">Is <span class="hl">Micron</span> actually overvalued right now?</div>
+    <div class="slot">[ real screen: PE 23.7 vs &ldquo;many stocks trade at 20&ndash;28&rdquo;<br>Research_Hub/155013 ]</div>
+    <div class="sub">An instant AI fair-value read on live data &mdash; with the analysis behind it.</div>
+    <div class="cta">Check any ticker free &rarr;</div>
+    <div class="legal">Research &amp; education &mdash; not investment advice.</div>
+  </div>
+</div>
+
+<!-- H2 — ex-newsletter (1:1) -->
+<div class="wrap">
+  <div class="label">H2 · 1:1 · slot = Research_Hub/155051</div>
+  <div class="ad sq">
+    <div class="brand">Apex<span>Alpha</span></div>
+    <div class="hook">I cancelled my <span class="strike">$199/yr</span> stock-picking sub.</div>
+    <div class="slot">[ real screen: streaming AI memo<br>Research_Hub/155051 ]</div>
+    <div class="sub">Now I just type the ticker and read the full hedge-fund-style memo &mdash; the analysis, not a hot tip.</div>
+    <div class="anchor">From $99 your first year &middot; vs Seeking Alpha $299 &middot; Motley Fool $199</div>
+    <div class="cta">Read your first memo free &rarr;</div>
+    <div class="legal">Research &amp; education &mdash; not investment advice. Prices are illustrative.</div>
+  </div>
+</div>
+
+<!-- H5 — valuation (1:1) -->
+<div class="wrap">
+  <div class="label">H5 · 1:1 · slot = Valuation/155326</div>
+  <div class="ad sq">
+    <div class="brand">Apex<span>Alpha</span></div>
+    <div class="eyebrow">5-year valuation model</div>
+    <div class="hook">Stop <span class="hl">guessing</span> what a stock is worth.</div>
+    <div class="slot">[ real screen: Bull / Base / Bear model<br>Valuation/155326 ]</div>
+    <div class="sub">Build a 5-year Bull / Base / Bear model on live fundamentals &mdash; you set the assumptions.</div>
+    <div class="cta">Start free &mdash; no card &rarr;</div>
+    <div class="legal">Research &amp; education. Projections are hypothetical, not investment advice.</div>
+  </div>
+</div>
+
+<!-- H3 — 5-second demo (9:16) -->
+<div class="wrap">
+  <div class="label">H3 · 9:16 · slot = Research_Hub/154852 + 155051</div>
+  <div class="ad vt">
+    <div class="brand">Apex<span>Alpha</span></div>
+    <div class="eyebrow">Live demo</div>
+    <div class="hook">Watch an AI judge a stock in <span class="hl">5 seconds.</span></div>
+    <div class="slot">[ real screen-rec: type ticker &rarr; verdict<br>154852 &rarr; 155035 &rarr; 155051 ]</div>
+    <div class="sub">Over- or undervalued, on live data &mdash; with the full memo behind it.</div>
+    <div class="cta">Try any ticker free &rarr;</div>
+    <div class="legal">Research &amp; education &mdash; not investment advice.</div>
+  </div>
+</div>
+
+<!-- Shared end-card (9:16) -->
+<div class="wrap">
+  <div class="label">END-CARD · 9:16 · reusable</div>
+  <div class="ad vt endwrap">
+    <div class="brand">Apex<span>Alpha</span></div>
+    <div class="hook" style="margin:24px 0 0">Hedge-fund-grade research.<br><span class="hl">For the price of a coffee.</span></div>
+    <div class="sub">First verdict free &mdash; no card.</div>
+    <div class="pill">30-day money-back guarantee</div>
+    <div class="cta">Check any ticker free &rarr;</div>
+    <div class="legal" style="margin-top:22px">Research &amp; education &mdash; not investment advice.</div>
+  </div>
+</div>

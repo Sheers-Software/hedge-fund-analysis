@@ -2,13 +2,19 @@
 // Single source of truth for what each tier can do. The whole app gates
 // features off this config so the free→paid funnel stays consistent.
 //
-// Good-better-best ladder (validation-MVP):
-//   Free      — the hook: quota-limited, everything else teased.
-//   Basic $9  — the core research toolkit (valuation, charts, export, unlimited).
-//   Premium $19 — adds the flagship AI Intelligence terminal on top of Basic.
+// The pricing model is the Meta conversion machine (see
+// docs/meta-gtm/conversion-machine.md): a free ungated verdict → account →
+// $7 card-on-file tripwire → an ANNUAL ladder ($99 intro → $279/$299 renewal)
+// with Premium as an annual expansion. Cadence is annual, NOT monthly — the
+// LTV:CAC ≥ 3:1 math depends on it.
+//
+//   Free        — the hook: quota-limited, everything else teased.
+//   Basic       — the core annual plan ($99 intro / $279–299 renewal).
+//   Premium     — annual + the AI Intelligence desk (≈ +$100/yr expansion).
+//   Tripwire    — a $7 one-off single-ticker deep-dive (not a Tier; see TRIPWIRE).
 //
 // Keys are supplied server-side; upgrades go through Stripe Payment Links
-// (no backend billing yet) — see UpgradeModal.
+// (no backend billing yet) — see UpgradeModal / UpgradeReturnHandler.
 
 export type Tier = "free" | "basic" | "premium";
 
@@ -49,22 +55,44 @@ export const FEATURE_MIN_TIER: Record<GatedFeature, Tier> = {
 /** Quota'd actions (reports/checks) become unlimited at this tier and above. */
 export const QUOTA_UNLOCK_TIER: Tier = "basic";
 
+export type Cadence = "annual" | "oneoff" | "free";
+
 export interface TierConfig {
   id: Tier;
   name: string;
-  /** Price in USD per month. 0 for free. */
-  priceMonthly: number;
+  /** Billing cadence — the ladder is annual (the monthly model is retired). */
+  cadence: Cadence;
+  /** First-term price in USD (annual intro: $99). 0 for free. */
+  introPrice: number;
+  /** Recurring price in USD after the intro term (annual renewal). 0 for free. */
+  renewalPrice: number;
   tagline: string;
   limits: TierLimits;
   /** Marketing bullet points for the pricing page. */
   features: string[];
 }
 
+// ── Annual ladder pricing (Step 3 WTP test is runtime-switchable) ─────
+/** First-year intro price for the core annual (Basic) plan. */
+export const ANNUAL_INTRO_PRICE = 99;
+/**
+ * Renewal price for the core annual plan. The Step 3 WTP test A/Bs $279 vs $299
+ * with no redeploy via NEXT_PUBLIC_ANNUAL_RENEWAL_PRICE (defaults to $279).
+ */
+export const ANNUAL_RENEWAL_PRICE: 279 | 299 =
+  Number(process.env.NEXT_PUBLIC_ANNUAL_RENEWAL_PRICE) === 299 ? 299 : 279;
+/** Premium is the annual expansion: ≈ +$100/yr over Basic (recon assumption). */
+export const PREMIUM_EXPANSION_DELTA = 100;
+/** Modeled blended LTV (~$528–598) — what CAPI sends as predicted_ltv (never value×12). */
+export const MODELED_LTV = 560;
+
 export const TIERS: Record<Tier, TierConfig> = {
   free: {
     id: "free",
     name: "Free",
-    priceMonthly: 0,
+    cadence: "free",
+    introPrice: 0,
+    renewalPrice: 0,
     tagline: "See the quality before you pay a cent.",
     limits: {
       reportsPerMonth: 1,
@@ -76,8 +104,8 @@ export const TIERS: Record<Tier, TierConfig> = {
       historyLimit: 3,
     },
     features: [
+      "1 free fair-value verdict — no account needed",
       "1 full AI research memo / month",
-      "3 quick fair-value checks / month",
       "Real-time price & fundamentals",
       "Valuation, charts & Intelligence preview",
     ],
@@ -85,8 +113,10 @@ export const TIERS: Record<Tier, TierConfig> = {
   basic: {
     id: "basic",
     name: "Basic",
-    priceMonthly: 9,
-    tagline: "The core research toolkit, unlimited.",
+    cadence: "annual",
+    introPrice: ANNUAL_INTRO_PRICE,
+    renewalPrice: ANNUAL_RENEWAL_PRICE,
+    tagline: "The complete research toolkit — unlimited, all year.",
     limits: {
       reportsPerMonth: null,
       checksPerMonth: null,
@@ -108,7 +138,9 @@ export const TIERS: Record<Tier, TierConfig> = {
   premium: {
     id: "premium",
     name: "Premium",
-    priceMonthly: 19,
+    cadence: "annual",
+    introPrice: ANNUAL_INTRO_PRICE + PREMIUM_EXPANSION_DELTA,
+    renewalPrice: ANNUAL_RENEWAL_PRICE + PREMIUM_EXPANSION_DELTA,
     tagline: "Everything, plus the AI Intelligence desk.",
     limits: {
       reportsPerMonth: null,
@@ -130,26 +162,77 @@ export const TIERS: Record<Tier, TierConfig> = {
   },
 };
 
+// ── The $7 tripwire (a one-off product, NOT a Tier) ──────────────────
+// Card-on-file single-ticker unlock: the full memo + valuation + charts +
+// export for ONE ticker. Ownership lives on the account as `deepDives`.
+export const TRIPWIRE = {
+  id: "deepdive" as const,
+  price: 7,
+  name: "Single deep-dive report",
+  tagline: "Unlock the full memo, model, charts & export for one ticker.",
+} as const;
+
 /** Paid tiers in upsell order (for the pricing page / upgrade modal). */
 export const PAID_TIERS: Exclude<Tier, "free">[] = ["basic", "premium"];
 
-export const BASIC_PRICE = TIERS.basic.priceMonthly;
-export const PREMIUM_PRICE = TIERS.premium.priceMonthly;
-/** @deprecated kept for back-compat; prefer BASIC_PRICE / PREMIUM_PRICE. */
-export const PRO_PRICE = TIERS.basic.priceMonthly;
+/** First-term (intro) price for a tier. */
+export const introPriceFor = (tier: Tier): number => TIERS[tier].introPrice;
+/** Recurring (renewal) price for a tier. */
+export const renewalPriceFor = (tier: Tier): number => TIERS[tier].renewalPrice;
 
-export const priceFor = (tier: Tier): number => TIERS[tier].priceMonthly;
+// Category anchors for the paywall (competitor annual list prices).
+export const CATEGORY_ANCHORS = [
+  { name: "Seeking Alpha", price: 299 },
+  { name: "Motley Fool", price: 199 },
+];
 
-/** Where each paid tier's "Upgrade" button sends users (Stripe Payment Links). */
+/** Where each paid tier's annual checkout sends users (Stripe Payment Links). */
 export const STRIPE_PAYMENT_LINKS: Record<Exclude<Tier, "free">, string> = {
-  basic: process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK || "",
-  premium: process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK_PREMIUM || "",
+  basic:
+    process.env.NEXT_PUBLIC_STRIPE_LINK_ANNUAL ||
+    process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK ||
+    "",
+  premium:
+    process.env.NEXT_PUBLIC_STRIPE_LINK_ANNUAL_PREMIUM ||
+    process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK_PREMIUM ||
+    "",
 };
-/** @deprecated single-link back-compat (maps to Basic). */
-export const STRIPE_PAYMENT_LINK = STRIPE_PAYMENT_LINKS.basic;
+/** The $7 tripwire checkout link. */
+export const STRIPE_TRIPWIRE_LINK = process.env.NEXT_PUBLIC_STRIPE_LINK_TRIPWIRE || "";
 
 export const stripeLinkFor = (tier: Exclude<Tier, "free">): string =>
   STRIPE_PAYMENT_LINKS[tier];
+
+// ── Step 3 WTP A/B: renewal-anchor cells (intro stays $99/$199) ───────
+// Each cell binds a renewal anchor to its matching Stripe link so the price the
+// customer SEES always equals the price they're CHARGED. Assignment lives in
+// src/lib/experiment.ts; the chosen cell rides the Purchase event as `wtp_cell`.
+export type WtpCell = "a" | "b";
+
+export const WTP_CELLS: Record<
+  WtpCell,
+  { renewal: Record<Exclude<Tier, "free">, number>; links: Record<Exclude<Tier, "free">, string> }
+> = {
+  a: {
+    renewal: { basic: 279, premium: 379 },
+    links: { basic: STRIPE_PAYMENT_LINKS.basic, premium: STRIPE_PAYMENT_LINKS.premium },
+  },
+  b: {
+    renewal: { basic: 299, premium: 399 },
+    links: {
+      basic: process.env.NEXT_PUBLIC_STRIPE_LINK_ANNUAL_B || "",
+      premium: process.env.NEXT_PUBLIC_STRIPE_LINK_ANNUAL_PREMIUM_B || "",
+    },
+  },
+};
+
+/** Renewal price for a tier in a given WTP cell (0 for free). */
+export const renewalPriceForCell = (tier: Tier, cell: WtpCell): number =>
+  tier === "free" ? 0 : WTP_CELLS[cell].renewal[tier];
+
+/** Stripe checkout link for a paid tier in a given WTP cell. */
+export const stripeLinkForCell = (tier: Exclude<Tier, "free">, cell: WtpCell): string =>
+  WTP_CELLS[cell].links[tier] || STRIPE_PAYMENT_LINKS[tier];
 
 export function limitsFor(tier: Tier): TierLimits {
   return TIERS[tier].limits;

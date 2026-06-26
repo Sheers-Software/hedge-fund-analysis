@@ -2,38 +2,36 @@
 
 import { useRouter } from "next/navigation";
 import { Check, Crown } from "lucide-react";
-import { TIERS, TIER_ORDER, stripeLinkFor, priceFor, type Tier } from "@/lib/tiers";
+import { TIERS, TIER_ORDER, renewalPriceForCell, type Tier } from "@/lib/tiers";
 import { useAppStore } from "@/lib/store";
-import { trackInitiateCheckout } from "@/lib/analytics";
+import { startSubscriptionCheckout } from "@/lib/checkout";
+import { useWtpCell } from "@/lib/experiment";
 
+// Annual ladder pricing table (free → annual Basic/Premium) + trust row.
 const FEATURED: Tier = "premium";
 
 export default function PricingTable() {
   const router = useRouter();
   const openSignup = useAppStore((s) => s.openSignup);
+  const cell = useWtpCell();
 
   const startFree = () =>
-    openSignup("Create your free account — 1 full report + 3 fair-value checks every month.");
+    openSignup("Create your free account — your first verdict is on us, no card required.");
 
   const goPaid = (tier: Exclude<Tier, "free">) => {
-    trackInitiateCheckout(priceFor(tier));
-    const link = stripeLinkFor(tier);
-    if (link) {
-      try { localStorage.setItem("apex-alpha-pending-tier", tier); } catch {}
-      const url = new URL(link);
-      const ret = `${window.location.origin}/app?upgraded=1`;
-      url.searchParams.set("redirect", ret);
-      window.location.href = url.toString();
-    } else {
-      router.push("/app?upgrade=1");
-    }
+    // Returns to /app after Stripe. With no link configured (dev) the purchase
+    // applies optimistically, so just land them in the app.
+    const redirected = startSubscriptionCheckout(tier, { returnTo: "/app?upgraded=1" });
+    if (!redirected) router.push("/app");
   };
 
   return (
+    <>
     <div className="mkt-pricing">
       {TIER_ORDER.map((id) => {
         const t = TIERS[id];
         const featured = id === FEATURED;
+        const renewal = renewalPriceForCell(id, cell);
         return (
           <div key={id} className={`mkt-plan ${featured ? "mkt-plan-featured" : ""}`}>
             {featured && <div className="mkt-plan-badge">Flagship</div>}
@@ -42,9 +40,22 @@ export default function PricingTable() {
               {t.name}
             </div>
             <div className="mkt-plan-price">
-              <span className="mkt-plan-amount">${t.priceMonthly}</span>
-              <span className="mkt-plan-period">{id === "free" ? "forever" : "/ month"}</span>
+              {id === "free" ? (
+                <>
+                  <span className="mkt-plan-amount">$0</span>
+                  <span className="mkt-plan-period">forever</span>
+                </>
+              ) : (
+                <>
+                  <span className="mkt-plan-strike">${renewal}</span>
+                  <span className="mkt-plan-amount">${t.introPrice}</span>
+                  <span className="mkt-plan-period">first year</span>
+                </>
+              )}
             </div>
+            {id !== "free" && (
+              <div className="mkt-plan-renew">Renews at ${renewal}/yr · cancel anytime</div>
+            )}
             <p className="mkt-plan-tagline">{t.tagline}</p>
             {id === "free" ? (
               <button className="mkt-btn mkt-btn-ghost mkt-btn-block" onClick={startFree}>
@@ -55,7 +66,7 @@ export default function PricingTable() {
                 className={`mkt-btn ${featured ? "mkt-btn-primary" : "mkt-btn-ghost"} mkt-btn-block`}
                 onClick={() => goPaid(id as Exclude<Tier, "free">)}
               >
-                Get {t.name} — ${t.priceMonthly}/mo
+                Get {t.name} — ${t.introPrice} first year
               </button>
             )}
             <ul className="mkt-plan-features">
@@ -69,5 +80,10 @@ export default function PricingTable() {
         );
       })}
     </div>
+    <div className="mkt-pricing-guarantee">
+      <span>🛡 30-day money-back guarantee — full refund, no questions asked.</span>
+      <span>vs Seeking Alpha $299/yr · Motley Fool $199/yr</span>
+    </div>
+    </>
   );
 }

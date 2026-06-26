@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSettingsStore } from "@/lib/store";
+import { useSettingsStore, useAppStore } from "@/lib/store";
+import { useGate } from "@/lib/useGate";
 import { computeFairValue, type FairValueResult } from "@/lib/fairValue";
+import { trackViewVerdict } from "@/lib/analytics";
+import { TRIPWIRE, introPriceFor } from "@/lib/tiers";
 import { CompanyData } from "@/lib/types";
-import { FileText, X, Gauge } from "lucide-react";
+import { FileText, X, Gauge, Lock, ArrowRight } from "lucide-react";
 
 const verdictColor: Record<string, string> = {
   undervalued: "var(--green)",
@@ -25,10 +28,14 @@ export default function FairValueCheck({
 }) {
   const router = useRouter();
   const finnhubKey = useSettingsStore((s) => s.finnhubKey);
+  const setCurrentTicker = useAppStore((s) => s.setCurrentTicker);
+  const openUpgrade = useAppStore((s) => s.openUpgrade);
+  const { guardTripwire, hasDeepDive } = useGate();
   const [result, setResult] = useState<FairValueResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const firedFor = useRef<string | null>(null);
+  const verdictFiredFor = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +57,11 @@ export default function FairValueCheck({
         const r = computeFairValue(data);
         setResult(r);
         setLoading(false);
+        // ① The free ungated verdict was shown — fire ViewVerdict once.
+        if (verdictFiredFor.current !== ticker) {
+          verdictFiredFor.current = ticker;
+          trackViewVerdict(ticker);
+        }
         // Record usage/history once per ticker render.
         if (onComplete && firedFor.current !== ticker) {
           firedFor.current = ticker;
@@ -152,6 +164,33 @@ export default function FairValueCheck({
               Build your own valuation
             </button>
           </div>
+
+          {/* Post-verdict conversion: low-commitment tripwire vs the annual plan. */}
+          {!hasDeepDive(ticker) && (
+            <div className="fvc-unlock">
+              <div className="fvc-unlock-head">
+                <Lock size={13} color="var(--accent)" />
+                Unlock the full deep-dive for {ticker} — memo, 5-year model, charts &amp; export
+              </div>
+              <div className="fvc-unlock-cta">
+                <button className="mkt-btn mkt-btn-ghost" onClick={() => guardTripwire(ticker)}>
+                  ${TRIPWIRE.price} this ticker
+                </button>
+                <button
+                  className="mkt-btn mkt-btn-primary"
+                  onClick={() => {
+                    setCurrentTicker(ticker);
+                    openUpgrade(
+                      `Unlock everything for ${ticker} — and every ticker — with the annual plan.`,
+                      "basic"
+                    );
+                  }}
+                >
+                  ${introPriceFor("basic")}/yr unlock everything <ArrowRight size={13} />
+                </button>
+              </div>
+            </div>
+          )}
 
           <p className="fvc-disclaimer">
             *An informational estimate{result.basis ? ` based on the ${result.basis}` : ""} and

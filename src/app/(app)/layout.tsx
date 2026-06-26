@@ -3,6 +3,7 @@ import SettingsModal from "@/components/layout/SettingsModal";
 import SignupModal from "@/components/conversion/SignupModal";
 import UpgradeModal from "@/components/conversion/UpgradeModal";
 import UpgradeReturnHandler from "@/components/conversion/UpgradeReturnHandler";
+import RenewalBanner from "@/components/conversion/RenewalBanner";
 import "@/app/globals.css";
 
 // The authenticated-product shell. Marketing pages live in (marketing) and
@@ -11,6 +12,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="app-shell min-h-screen bg-[#0d1117] text-[#e8edf2] font-sans">
       <Navbar />
+      <RenewalBanner />
       <div className="flex w-full">{children}</div>
 
       {/* Global modals + funnel plumbing */}

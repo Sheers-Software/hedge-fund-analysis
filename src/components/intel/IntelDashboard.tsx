@@ -15,26 +15,42 @@ export default function IntelDashboard({ ticker }: { ticker: string }) {
   const addHistory = useHistoryStore((s) => s.add);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setAiLoading(false);
     setError(null);
-    fetch(`/api/intel/${ticker}`, {
-      headers: { "x-finnhub-key": finnhubKey, "x-gemini-key": geminiKey },
-    })
+    const headers = { "x-finnhub-key": finnhubKey, "x-gemini-key": geminiKey };
+
+    // Phase 1 — deterministic terminal (~1s): paint the dashboard immediately.
+    fetch(`/api/intel/${ticker}`, { headers })
       .then((r) => r.json())
       .then((d) => {
         if (!active) return;
         if (d.error) {
           setError(d.error);
-        } else {
-          setData(d);
-          // Only record real, resolvable tickers in history (skip bad/blocked).
-          if (d.price != null && Number(d.price) !== 0) {
-            addHistory({ ticker, name: d.name, kind: "intel" });
-          }
+          return;
+        }
+        setData(d);
+        setLoading(false);
+        // Only record real, resolvable tickers in history (skip bad/blocked).
+        if (d.price != null && Number(d.price) !== 0) {
+          addHistory({ ticker, name: d.name, kind: "intel" });
+        }
+        // Phase 2 — AI narration (~9s) loads in the background and upgrades the
+        // panels in place once Gemini responds. Never blocks the first paint.
+        if (d.price != null && Number(d.price) !== 0) {
+          setAiLoading(true);
+          fetch(`/api/intel/${ticker}?ai=1`, { headers })
+            .then((r) => r.json())
+            .then((ai) => {
+              if (active && ai && !ai.error && ai.aiPowered) setData(ai);
+            })
+            .catch(() => {})
+            .finally(() => active && setAiLoading(false));
         }
       })
       .catch((e) => active && setError(e.message))
@@ -46,11 +62,30 @@ export default function IntelDashboard({ ticker }: { ticker: string }) {
   }, [ticker, finnhubKey, geminiKey]);
 
   if (loading) {
+    // Bar heights are fixed (no randomness) so SSR/CSR markup stays identical.
+    const barHeights = [52, 78, 40, 92, 64, 84, 48];
     return (
-      <div className="intel-grid">
+      <div className="intel-grid intel-grid-skel" aria-busy="true" aria-label={`Loading intelligence for ${ticker}`}>
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="intel-panel intel-skel" style={{ height: i < 3 ? 360 : 320 }}>
-            <div className="skeleton" style={{ height: "100%" }} />
+          <div
+            key={i}
+            className="intel-panel intel-skelpanel"
+            style={{ ["--sk-delay" as string]: `${i * 0.1}s` }}
+          >
+            <div className="sk-head">
+              <span className="sk-pill" />
+              <span className="sk-pill sk-pill-sm" />
+            </div>
+            <div className="sk-bars">
+              {barHeights.map((h, j) => (
+                <span key={j} className="sk-bar" style={{ height: `${h}%` }} />
+              ))}
+            </div>
+            <div className="sk-rows">
+              <span className="sk-row" />
+              <span className="sk-row" />
+              <span className="sk-row" />
+            </div>
           </div>
         ))}
       </div>
@@ -88,6 +123,11 @@ export default function IntelDashboard({ ticker }: { ticker: string }) {
           <span className="intel-topbar-ticker">{data.ticker}</span>
           <span className="intel-topbar-name">{data.name}</span>
           {data.sector && <span className="intel-topbar-sector">{data.sector}</span>}
+          {aiLoading && !data.aiPowered && (
+            <span className="intel-ai-pill">
+              <Activity size={12} /> Refining with AI…
+            </span>
+          )}
         </div>
         <div className="intel-topbar-price">
           <span className="intel-topbar-px">{data.price != null ? `$${Number(data.price).toFixed(2)}` : "—"}</span>

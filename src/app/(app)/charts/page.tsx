@@ -37,8 +37,9 @@ function ChartsContent() {
           </div>
           <h1 className="val-empty-title">Historical Charts</h1>
           <p className="val-empty-sub">
-            Visualize quarterly EPS, free cash flow, and margins over the last several years,
-            with a 4-quarter forward projection. Search a ticker to begin.
+            Visualize quarterly revenue, EPS, margins, cash flow, operating income, equity, and
+            shares outstanding over the last five years — de-cumulated from as-reported filings,
+            with a forward projection on revenue and EPS. Search a ticker to begin.
           </p>
           <div className="val-empty-tickers">
             <p className="welcome-label">Quick access</p>
@@ -63,9 +64,10 @@ function ChartsContent() {
       </div>
       <ProGate
         feature="chartsFull"
+        ticker={ticker}
         title="Full charts + forward projections are a Basic feature"
-        sub="See multi-year quarterly EPS, margins, and free cash flow with a 4-quarter forward projection. Included with Basic — $9/mo."
-        reason="Quarterly history charts and forward projections are included with Basic."
+        sub="See multi-year quarterly revenue, EPS, margins, cash flow, operating income, equity, and shares — with a forward projection on revenue and EPS. Included with the annual plan — or unlock just this ticker for $7."
+        reason="Quarterly history charts and forward projections are included with the annual plan."
       >
         <ChartsView ticker={ticker} />
       </ProGate>
